@@ -1,0 +1,50 @@
+---
+title: "Biostat 625 Final Project - Post 9/11 Flight Delay"
+author: "Ralph Jiang, Xuelin Gu, Allen Li"
+date: "December 18, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+Wanted to investigate and predict and investigate trends in flight delay
+
+
+## Methods
+
+### Data Processing and Storage
+(add in what you did ralph to merge the weather data)
+
+biostat cluster using unix script - pre-prep and combining the separate data years
+(cp in code a bit later), but rbind in the cluster worked, merging the datafiles together 
+to 
+
+
+bigmemory package (simplified to all number type columns, no need to use ff)  
+
+
+### Analytics
+
+biganalytics package
+lme4
+
+Use a linear regression on Delay ~ Weather Age Year
+Linear miexed model on Delay ~ Weather Age + random Year
+
+### Visualization
+tidyverse family
+
+
+## Results  
+
+adljaf
+(include figures and whatnot)
+
+
+## Conclusion and Further Work
+
+Pre- 9/11 era and comparison
