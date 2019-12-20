@@ -101,6 +101,11 @@ select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEM
 ##There is no highly correlations between pairwise covariates, except for MIN.x, MAX.x, MIN.y, MAX.y.
 ```
 
+bigmemory package (simplified to all number type columns, no need to use ff)  
+
+
+### Analytics
+
 Linear regression based on descriptive result
 ```{r}
 dat$UniqueCarrier = as.factor(dat$UniqueCarrier)
@@ -129,11 +134,32 @@ lr_result = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek +
                                 Hail.y + Thunder.y + Tornado.y + season, data = dat )
 ```
 
-bigmemory package (simplified to all number type columns, no need to use ff)  
+Multilinearity diagnosis
 
-
-### Analytics
-
+```{r}
+#####obtain GVIF for multilinearity diagnosis
+v = vcov(lr_result)
+assign <- lr_result$assign
+if (names(coefficients(lr_result)[1]) == "(Intercept)") {
+  v <- v[-1, -1]
+  assign <- assign[-1]
+}
+terms <- labels(terms(lr_result))
+n.terms <- length(terms)
+R <- cov2cor(v)
+detR <- det(R)
+result <- matrix(0, n.terms, 3)
+rownames(result) <- terms
+colnames(result) <- c("GVIF", "Df", "GVIF^(1/(2*Df))")
+for (term in 1:n.terms) {
+  subs <- which(assign == term)
+  result[term, 1] <- det(as.matrix(R[subs, subs])) *
+    det(as.matrix(R[-subs, -subs])) / detR
+  result[term, 2] <- length(subs)
+}
+if (all(result[, 2] == 1)) result <- result[, 1] else result[, 3] <- result[, 1]^(1/(2 * result[, 2]))
+#######
+```
 biganalytics package
 lme4
 
