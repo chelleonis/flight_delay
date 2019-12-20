@@ -130,6 +130,24 @@ lr_result = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek +
 ```
 
 bigmemory package (simplified to all number type columns, no need to use ff)  
+troubles with loading 9 GB file on a intel i7-6600U, 2.40 GHz, with 8GB memory
+had to restort to cluster commputing
+
+(even bigmemory package would crash)
+
+data was loaded in a variety of manners, 
+for the parts we could break down by year, either
+read.table or read.csv were used.
+
+
+```{r,eval = FALSE}
+#fpath <- file.path(path,"flight_weather_cleaned.csv")
+#tic("fread 6gb data import")
+#flight_data <- data.table::fread(fpath)
+#toc()
+```
+for the cleaned data, fread 6gb data import: 180.45 sec elapsed, approximately 
+3 minutes to import the data.
 
 
 ### Analytics
