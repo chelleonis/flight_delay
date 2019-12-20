@@ -103,15 +103,15 @@ select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEM
 
 Linear regression based on descriptive result
 ```{r}
+dat$UniqueCarrier = as.factor(dat$UniqueCarrier)
+dat$Origin = as.factor(dat$Origin)
+dat$Dest = as.factor(dat$Dest)
+dat$season = as.factor(dat$season)
 lr_result = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TaxiIn + TaxiOut + TEMP.x +
                                 DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + TEMP.y + DEWP.y + 
                                 SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest + 
                                 Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + Fog.y + Rain.y + Snow.y + 
-                                Hail.y + Thunder.y + Tornado.y + season, fc=c('UniqueCarrier', 'Origin', 'Dest', 
-                                                                              'Fog.x', 'Rain.x', 'Snow.x', 'Hail.x', 
-                                                                              'Thunder.x', 'Tornado.x', 'Fog.y', 
-                                                                              'Rain.y', 'Snow.y', 'Hail.y', 'Thunder.y',
-                                                                              'aTornado.y', 'season'), data = dat )
+                                Hail.y + Thunder.y + Tornado.y + season, data = dat )
 ```
 
 bigmemory package (simplified to all number type columns, no need to use ff)  
