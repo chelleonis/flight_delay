@@ -149,6 +149,23 @@ read.table or read.csv were used.
 for the cleaned data, fread 6gb data import: 180.45 sec elapsed, approximately 
 3 minutes to import the data.
 
+32 million observations
+
+```{r, eval = FALSE}
+
+> #fpath <- file.path(path,"flight_weather_cleaned.csv")
+> #tic("fread 6gb data import")
+> #flight_data <- data.table::fread(fpath)
+> #toc()
+> 
+> tic( .... [TRUNCATED] 
+
+> x_test <- read.csv("D:/bios625data/flight_weather_cleaned.csv")
+
+> toc()
+#test for read.csv: 2654.62 sec elapsed
+```
+each data table is around 1 gigabyte in size
 
 ### Analytics
 
@@ -171,3 +188,9 @@ adljaf
 ## Conclusion and Further Work
 
 Pre- 9/11 era and comparison
+Full time dataset is huge, would require different forms of data storage
+
+Investigation of different models 
+Dealing with missing data on a large scale
+Investigation of moer parameters
+Cross-validation
