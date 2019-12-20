@@ -122,7 +122,6 @@ dat$Snow.y = as.factor(dat$Snow.y)
 dat$Hail.y = as.factor(dat$Hail.y)
 dat$Thunder.y = as.factor(dat$Thunder.y)
 dat$Tornado.y = as.factor(dat$Tornado.y)
-
 lr_result = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TaxiIn + TaxiOut + TEMP.x +
                                 DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + TEMP.y + DEWP.y +
                                 SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest +
