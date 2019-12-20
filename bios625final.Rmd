@@ -53,11 +53,11 @@ dat = select(dat,-c(key2, key, DepTime, `STN---.x`, YEARMODA.x, `STN---.y`, YEAR
                     Cancelled, CancellationCode, Diverted, #reason 2
                   CarrierDelay, WeatherDelay, NASDelay, SecurityDelay, LateAircraftDelay, STP.x, STP.y, GUST.x, GUST.y)) ##reason 3
 #create season covariate
-dat = mutate(dat, season = 1)
-dat[which(dat$Month==1|2|3),]$season="winter"
-dat[which(dat$Month==4|5|6),]$season="spring"
-dat[which(dat$Month==7|8|9),]$season="summer"
-dat[which(dat$Month==10|11|12),]$season="fall"
+dat = mutate(dat, season = NA)
+dat[which(dat$Month==1|dat$Month==2|dat$Month==3),]$season="winter"
+dat[which(dat$Month==4|dat$Month==5|dat$Month==6),]$season="spring"
+dat[which(dat$Month==7|dat$Month==8|dat$Month==9),]$season="summer"
+dat[which(dat$Month==10|dat$Month==10|dat$Month==11),]$season="fall"
 ##
 ```
 
@@ -77,8 +77,8 @@ select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEM
               WDSP.y, MXSPD.y, MAX.y, MIN.y, PRCP.y, SNDP.y)) %>% var()
 ##obtain frequency tables for categorical covaraites
 select(dat, UniqueCarrier) %>% table()
-select(dat, FlightNum) %>% table()
-select(dat, TailNum) %>% table()
+select(dat, FlightNum) %>% table() ## too many categories
+select(dat, TailNum) %>% table() ## too many categories
 select(dat, Origin) %>% table()
 select(dat, Dest) %>% table()
 select(dat, Fog.x) %>% table()
@@ -93,22 +93,25 @@ select(dat, Snow.y) %>% table()
 select(dat, Hail.y) %>% table()
 select(dat, Thunder.y) %>% table()
 select(dat, Tornado.y) %>% table()
-##obtain correlation coefficients of numeric covariates
+select(dat, season) %>% table()
+##obtain correlation coefficients of numeric covariates using complete data
 select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEMP.x, DEWP.x, SLP.x, VISIB.x,
               WDSP.x, MXSPD.x, MAX.x, MIN.x, PRCP.x, SNDP.x, TEMP.y, DEWP.y, SLP.y, VISIB.y,
-              WDSP.y, MXSPD.y, MAX.y, MIN.y, PRCP.y, SNDP.y)) %>% cor()
-##There is no highly correlations between pairwise covariates
+              WDSP.y, MXSPD.y, MAX.y, MIN.y, PRCP.y, SNDP.y)) %>% cor(,use = "complete.obs")
+##There is no highly correlations between pairwise covariates, except for MIN.x, MAX.x, MIN.y, MAX.y.
+```
 
-##Normality: QQplot of responde variables: ArrDelay, DepDelay
-pdf("~/final/ArrDelayplot.pdf")
-qqnorm(dat$ArrDelay, pch = 1, frame = FALSE)
-qqline(dat$ArrDelay, col = "steelblue", lwd = 2)
-dev.off()
-pdf("~/final/DepDelayplot.pdf")
-qqnorm(test$DepDelay, pch = 1, frame = FALSE)
-qqline(test$DepDelay, col = "steelblue", lwd = 2)
-dev.off()
-##
+Linear regression based on descriptive result
+```{r}
+lr_result = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TaxiIn + TaxiOut + TEMP.x +
+                                DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + TEMP.y + DEWP.y + 
+                                SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest + 
+                                Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + Fog.y + Rain.y + Snow.y + 
+                                Hail.y + Thunder.y + Tornado.y + season, fc=c('UniqueCarrier', 'Origin', 'Dest', 
+                                                                              'Fog.x', 'Rain.x', 'Snow.x', 'Hail.x', 
+                                                                              'Thunder.x', 'Tornado.x', 'Fog.y', 
+                                                                              'Rain.y', 'Snow.y', 'Hail.y', 'Thunder.y',
+                                                                              'aTornado.y', 'season'), data = dat )
 ```
 
 bigmemory package (simplified to all number type columns, no need to use ff)  
