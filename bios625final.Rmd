@@ -8,17 +8,68 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=80),tidy=TRUE)
 library(dbplyr)
 library(data.table)
+library(lubridate)
+library(plyr)
 library(dplyr)
 library(readr)
 library(bigmemory)
 library(biganalytics) 
+library(stringr)
+library(ggplot2)
+library(plotly)
+library(chron)
+library(lattice)
+library(grid)
 ```
 
 ## Introduction
 
-Delayed flights are a common occurance in the airline industry, with 25 million flights being delayed (for at least 15 minutes) for 20 years of data. The issue of delayed flights is seemingly unpredictable with so many factors preceding a successful flight. For the customer then, it is of increased importance to be able to anticipate what may cause a delay in their flight. To try to shed some light on the issue, we analyzed a large dataset from the post 9/11 era (2001-2008), given by the bureau of transportation statistics. The cuases of 
+Delayed flights are a common occurance in the airline industry, with 25 million flights being delayed (for at least 15 minutes) for 20 years of data. The issue of delayed flights is seemingly unpredictable with so many factors preceding a successful flight. For the customer then, it is of increased importance to be able to anticipate what may cause a delay in their flight. To try to shed some light on the issue, we analyzed a large dataset from the post 9/11 era (2001-2008), given by the Bureau of Transportation Statistics. 
+
+
+#### Calendar Heatmap
+
+To further motivate our study of flight delays, let's take a look at the prevalence of flight delays (defined as a flight that departs more than 15 minutes past the scheduled time) from 2001-2008.
+```{r, eval = FALSE, echo = FALSE}
+# Code used to generate delay proportions the first time, the resulting data frame gets stored as an R object and can be read back in the future without having to run this code again
+data2001 <- read.csv('2001.csv.bz2')
+data2002 <- read.csv('2002.csv.bz2')
+data2003 <- read.csv('2003.csv.bz2')
+data2004 <- read.csv('2004.csv.bz2')
+data2005 <- read.csv('2005.csv.bz2')
+data2006 <- read.csv('2006.csv.bz2')
+data2007 <- read.csv('2007.csv.bz2')
+data2008 <- read.csv('2008.csv.bz2')
+
+data2001 <- data2001[ , c('Year', 'Month', 'DayofMonth', 'DepDelay')]
+data2002 <- data2002[ , c('Year', 'Month', 'DayofMonth', 'DepDelay')]
+data2003 <- data2003[ , c('Year', 'Month', 'DayofMonth', 'DepDelay')]
+data2004 <- data2004[ , c('Year', 'Month', 'DayofMonth', 'DepDelay')]
+data2005 <- data2005[ , c('Year', 'Month', 'DayofMonth', 'DepDelay')]
+data2006 <- data2006[ , c('Year', 'Month', 'DayofMonth', 'DepDelay')]
+data2007 <- data2007[ , c('Year', 'Month', 'DayofMonth', 'DepDelay')]
+data2008 <- data2008[ , c('Year', 'Month', 'DayofMonth', 'DepDelay')]
+
+data1 <- rbind(data2001, data2002, data2003, data2004, data2005, data2006, data2007, data2008)
+
+data1$Date <- ymd(paste0(data1$Year, '/', data1$Month, '/', data1$DayofMonth))
+delay_prop <- data1 %>% group_by(Date) %>% summarise(delay_prop = sum(DepDelay >= 15, na.rm = T) / n()) 
+saveRDS(delay_prop, "delay_prop.rds")
+```
+
+```{r, echo = FALSE}
+delay_prop <- readRDS("delay_prop.rds")
+g2r <- c("#5CDA4D", "#FEFEAA", "#FF9563", "#FF0000") # Green to red color palette
+source("https://raw.githubusercontent.com/iascchen/VisHealth/master/R/calendarHeat.R") # Calendar Heatmap function
+calendarHeat(delay_prop$Date[1:1461], delay_prop$delay_prop[1:1461], ncolors=99, color='g2r', varname = "Flight Delay Proportion (2001-2004)")
+calendarHeat(delay_prop$Date[1462:2922], delay_prop$delay_prop[1462:2922], ncolors=99, color='g2r', varname = "Flight Delay Proportion (2005-2008)")
+```
+
+We can see that it is quite common for over 25% of flights to be delayed on any given day. The proportion of flights delayed consistently gets much worse towards the end of December / beginning of January, especially on the days right before Christmas and right after New Year's. Comparing across seasons, it appears that spring and fall are relatively delay-free, whereas in the summer, we can expect to have at least 30% of flights delayed. Unfortunately, these trends have not been getting much better over time, and if anything, have been worsening ever since 2003. Thus, we believe it is of utmost interest to investigate what factors influence the amount of time flights are delayed.
+
 
 ## Methods
 
@@ -26,7 +77,208 @@ Our dataset contains, at its base, 29 variables and 130 million entries of fligh
 
 ### Data Cleaning and Pre-processing
 
-We first had to combine yearly weather data to our base dataset, by splitting the dataset into managable chunks (years). The weather datasets included variables such as tempearture, rain (categorical), and wind speed. We combined these separate dateafiles as follows:  
+We believe a major factor influencing flight delays is the weather. The source of our daily weather data is NCDC Cliamte Data Online. We split the dataset into managable chunks (years). The weather datasets included 23 variables such as tempearture, precipitation, and wind speed. We merged the base data to the weather data by using a key consisting of the 3 letter airport code, year, month, and day, concatenated together. The relevant code is in the R Markdown file but not the pdf.
+
+```{r, eval = FALSE, echo = FALSE}
+# Code to merge flight data with weather data
+weather_data <- fread('weather_data.csv')
+station_codes <- as.character(weather_data$`STN---`)
+
+# The weather data uses a six digit code to represent a station, this code can be converted to the three letter airport code via http://old.wetterzentrale.de/klima/stnlst.html
+station_codes[station_codes == '702730'] <- 'ANC'
+station_codes[station_codes == '722020'] <- 'MIA'
+station_codes[station_codes == '722030'] <- 'PBI'
+station_codes[station_codes == '722050'] <- 'MCO'
+station_codes[station_codes == '722060'] <- 'JAX'
+station_codes[station_codes == '722108'] <- 'RSW'
+station_codes[station_codes == '722110'] <- 'TPA'
+station_codes[station_codes == '722190'] <- 'ATL'
+station_codes[station_codes == '722280'] <- 'BHM'
+station_codes[station_codes == '722310'] <- 'MSY'
+station_codes[station_codes == '722430'] <- 'IAH'
+station_codes[station_codes == '722440'] <- 'HOU'
+station_codes[station_codes == '722530'] <- 'SAT'
+station_codes[station_codes == '722540'] <- 'AUS'
+station_codes[station_codes == '722590'] <- 'DFW'
+station_codes[station_codes == '722780'] <- 'PHX'
+station_codes[station_codes == '722880'] <- 'BUR'
+station_codes[station_codes == '722900'] <- 'SAN'
+station_codes[station_codes == '722950'] <- 'LAX'
+station_codes[station_codes == '722977'] <- 'SNA'
+station_codes[station_codes == '723060'] <- 'RDU'
+station_codes[station_codes == '723140'] <- 'CLT'
+station_codes[station_codes == '723270'] <- 'BNA'
+station_codes[station_codes == '723650'] <- 'ABQ'
+station_codes[station_codes == '723860'] <- 'LAS'
+station_codes[station_codes == '724030'] <- 'IAD'
+station_codes[station_codes == '724050'] <- 'DCA'
+station_codes[station_codes == '724060'] <- 'BWI'
+station_codes[station_codes == '724080'] <- 'PHL'
+station_codes[station_codes == '724210'] <- 'CVG'
+station_codes[station_codes == '724280'] <- 'CMH'
+station_codes[station_codes == '724340'] <- 'STL'
+station_codes[station_codes == '724380'] <- 'IND'
+station_codes[station_codes == '724460'] <- 'MCI'
+station_codes[station_codes == '724839'] <- 'SMF'
+station_codes[station_codes == '724930'] <- 'OAK'
+station_codes[station_codes == '724940'] <- 'SFO'
+station_codes[station_codes == '724945'] <- 'SJC'
+station_codes[station_codes == '725020'] <- 'EWR'
+station_codes[station_codes == '725030'] <- 'LGA'
+station_codes[station_codes == '725080'] <- 'BDL'
+station_codes[station_codes == '725090'] <- 'BOS'
+station_codes[station_codes == '725200'] <- 'PIT'
+station_codes[station_codes == '725240'] <- 'CLE'
+station_codes[station_codes == '725280'] <- 'BUF'
+station_codes[station_codes == '725300'] <- 'ORD'
+station_codes[station_codes == '725340'] <- 'MDW'
+station_codes[station_codes == '725370'] <- 'DTW'
+station_codes[station_codes == '725500'] <- 'OMA'
+station_codes[station_codes == '725650'] <- 'DEN'
+station_codes[station_codes == '725720'] <- 'SLC'
+station_codes[station_codes == '726400'] <- 'MKE'
+station_codes[station_codes == '726580'] <- 'MSP'
+station_codes[station_codes == '726980'] <- 'PDX'
+station_codes[station_codes == '727930'] <- 'SEA'
+station_codes[station_codes == '744860'] <- 'JFK'
+station_codes[station_codes == '911820'] <- 'HNL'
+station_codes[station_codes == '911900'] <- 'OGG'
+
+weather_data$`STN---` <- station_codes
+unique_codes <- unique(station_codes)
+
+# Dealing with missing data in the weather dataset
+# Variable descriptions are found here: https://www7.ncdc.noaa.gov/CDO/GSOD_DESC.txt
+weather_data$TEMP[weather_data$TEMP == 9999.9] <- NA
+weather_data$DEWP[weather_data$DEWP == 9999.9] <- NA
+weather_data$SLP[weather_data$SLP == 9999.9] <- NA
+weather_data$STP[weather_data$STP == 9999.9] <- NA
+weather_data$VISIB[weather_data$VISIB == 999.9] <- NA
+weather_data$WDSP[weather_data$WDSP == 999.9] <- NA
+weather_data$MXSPD[weather_data$MXSPD == 999.9] <- NA
+weather_data$GUST[weather_data$GUST == 999.9] <- NA
+weather_data$MAX <- gsub("*", "", weather_data$MAX, fixed = T) # Remove irrelevant asterisks from column
+weather_data$MAX[weather_data$MAX == 9999.9] <- NA
+weather_data$MIN <- gsub("*", "", weather_data$MIN, fixed = T)
+weather_data$MIN[weather_data$MIN == 9999.9] <- NA
+weather_data$PRCP[weather_data$PRCP == 99.99] <- NA
+
+# Precipitation is reported in various ways for different stations. There is a character (A-G) at the end of each entry that represents over what time frame the precipitation was measured
+weather_data$PRCP1 <- as.numeric(substr(weather_data$PRCP, 1, nchar(weather_data$PRCP) - 1)) # Split entry into numeric part and character part
+weather_data$PRCP2 <- substr(weather_data$PRCP, nchar(weather_data$PRCP), nchar(weather_data$PRCP))
+
+# These are multipliers that will allow us to compare precipitation across all stations
+weather_data$PRCP2[weather_data$PRCP2 == 'A'] <- 4 
+weather_data$PRCP2[weather_data$PRCP2 == 'B'] <- 2
+weather_data$PRCP2[weather_data$PRCP2 == 'C'] <- 1.333
+weather_data$PRCP2[weather_data$PRCP2 == 'D'] <- 1
+weather_data$PRCP2[weather_data$PRCP2 == 'G'] <- 1
+weather_data$PRCP2[weather_data$PRCP2 == 'H'] <- 0
+weather_data$PRCP2[weather_data$PRCP2 == 'I'] <- 0
+weather_data$PRCP2 <- as.numeric(weather_data$PRCP2)
+weather_data$PRCP <- weather_data$PRCP1 * weather_data$PRCP2
+
+# Setting snow value of 999.9 to 0 instead of NA because most stations do not explicitly report 0 on days without snow, so a 999.9 will typically just mean no snow
+weather_data$SNDP[weather_data$SNDP == 999.9] <- 0 
+
+# FRSHTT: 6 digits, indicators for Fog, Rain/Drizzle, Snow/Ice Pellets, Hail, Thunder, Tornado.
+# We want to create a separate column for each variable. Since leading zeroes get removed, we pad them back onto the front until each entry is 6 digits, then we take each 1 character substring to form the new columns
+weather_data$FRSHTT <- str_pad(weather_data$FRSHTT, width = 6, pad = '0')
+weather_data$Fog <- substr(weather_data$FRSHTT, 1, 1)
+weather_data$Rain <- substr(weather_data$FRSHTT, 2, 2)
+weather_data$Snow <- substr(weather_data$FRSHTT, 3, 3)
+weather_data$Hail <- substr(weather_data$FRSHTT, 4, 4)
+weather_data$Thunder <- substr(weather_data$FRSHTT, 5, 5)
+weather_data$Tornado <- substr(weather_data$FRSHTT, 6, 6)
+
+# Create a key that will allow the weather data to communicate with the flights data
+weather_data$key <- paste0(weather_data$'STN---', weather_data$YEARMODA)
+
+# Remove irrelevant columns
+weather_data <- subset(weather_data, select = -c(WBAN, V5, V7, V9, V11, V13, V15, FRSHTT, V23, PRCP1, PRCP2))
+
+flights2001 <- read.csv('2001.csv.bz2')
+flights2002 <- read.csv('2002.csv.bz2')
+flights2003 <- read.csv('2003.csv.bz2')
+flights2004 <- read.csv('2004.csv.bz2')
+flights2005 <- read.csv('2005.csv.bz2')
+flights2006 <- read.csv('2006.csv.bz2')
+flights2007 <- read.csv('2007.csv.bz2')
+flights2008 <- read.csv('2008.csv.bz2')
+
+# Since we only have weather data for the 58 biggest airports, we have to filter down to flights whose origin and destination are both one of those 58 airports
+flights2001 <- flights2001[flights2001$Origin %in% unique_codes & flights2001$Dest %in% unique_codes, ]
+flights2002 <- flights2002[flights2002$Origin %in% unique_codes & flights2002$Dest %in% unique_codes, ]
+flights2003 <- flights2003[flights2003$Origin %in% unique_codes & flights2003$Dest %in% unique_codes, ]
+flights2004 <- flights2004[flights2004$Origin %in% unique_codes & flights2004$Dest %in% unique_codes, ]
+flights2005 <- flights2005[flights2005$Origin %in% unique_codes & flights2005$Dest %in% unique_codes, ]
+flights2006 <- flights2006[flights2006$Origin %in% unique_codes & flights2006$Dest %in% unique_codes, ]
+flights2007 <- flights2007[flights2007$Origin %in% unique_codes & flights2007$Dest %in% unique_codes, ]
+flights2008 <- flights2008[flights2008$Origin %in% unique_codes & flights2008$Dest %in% unique_codes, ]
+
+# Creating two keys (one for origin, one for destination) from the flights dataset in the same format as the previously created key from the weather dataset. We need all days to be two digits long, so we may have to pad a leading zero on
+flights2001$key <- paste0(flights2001$Origin, flights2001$Year, str_pad(flights2001$Month, width = 2, pad = '0'), str_pad(flights2001$DayofMonth, width = 2, pad = '0'))
+flights2001$key2 <- paste0(flights2001$Dest, flights2001$Year, str_pad(flights2001$Month, width = 2, pad = '0'),
+str_pad(flights2001$DayofMonth, width = 2, pad = '0'))
+flights2002$key <- paste0(flights2002$Origin, flights2002$Year, str_pad(flights2002$Month, width = 2, pad = '0'),
+str_pad(flights2002$DayofMonth, width = 2, pad = '0'))
+flights2002$key2 <- paste0(flights2002$Dest, flights2002$Year, str_pad(flights2002$Month, width = 2, pad = '0'),
+str_pad(flights2002$DayofMonth, width = 2, pad = '0'))
+flights2003$key <- paste0(flights2003$Origin, flights2003$Year, str_pad(flights2003$Month, width = 2, pad = '0'),
+str_pad(flights2003$DayofMonth, width = 2, pad = '0'))
+flights2003$key2 <- paste0(flights2003$Dest, flights2003$Year, str_pad(flights2003$Month, width = 2, pad = '0'),
+str_pad(flights2003$DayofMonth, width = 2, pad = '0'))
+flights2004$key <- paste0(flights2004$Origin, flights2004$Year, str_pad(flights2004$Month, width = 2, pad = '0'),
+str_pad(flights2004$DayofMonth, width = 2, pad = '0'))
+flights2004$key2 <- paste0(flights2004$Dest, flights2004$Year, str_pad(flights2004$Month, width = 2, pad = '0'),
+str_pad(flights2004$DayofMonth, width = 2, pad = '0'))
+flights2005$key <- paste0(flights2005$Origin, flights2005$Year, str_pad(flights2005$Month, width = 2, pad = '0'),
+str_pad(flights2005$DayofMonth, width = 2, pad = '0'))
+flights2005$key2 <- paste0(flights2005$Dest, flights2005$Year, str_pad(flights2005$Month, width = 2, pad = '0'),
+str_pad(flights2005$DayofMonth, width = 2, pad = '0'))
+flights2006$key <- paste0(flights2006$Origin, flights2006$Year, str_pad(flights2006$Month, width = 2, pad = '0'),
+str_pad(flights2006$DayofMonth, width = 2, pad = '0'))
+flights2006$key2 <- paste0(flights2006$Dest, flights2006$Year, str_pad(flights2006$Month, width = 2, pad = '0'),
+str_pad(flights2006$DayofMonth, width = 2, pad = '0'))
+flights2007$key <- paste0(flights2007$Origin, flights2007$Year, str_pad(flights2007$Month, width = 2, pad = '0'),
+str_pad(flights2007$DayofMonth, width = 2, pad = '0'))
+flights2007$key2 <- paste0(flights2007$Dest, flights2007$Year, str_pad(flights2007$Month, width = 2, pad = '0'),
+str_pad(flights2007$DayofMonth, width = 2, pad = '0'))
+flights2008$key <- paste0(flights2008$Origin, flights2008$Year, str_pad(flights2008$Month, width = 2, pad = '0'),
+str_pad(flights2008$DayofMonth, width = 2, pad = '0'))
+flights2008$key2 <- paste0(flights2008$Dest, flights2008$Year, str_pad(flights2008$Month, width = 2, pad = '0'),
+str_pad(flights2008$DayofMonth, width = 2, pad = '0'))
+
+# Finally, we can merge the files together. The first merge is on the weather at the origin airport, the second merge is on the weather at the destination airport.
+flights_weather2001 <- merge(flights2001, weather_data, by = 'key')
+flights_weather2001 <- merge(flights_weather2001, weather_data, by.x = 'key2', by.y = 'key')
+flights_weather2002 <- merge(flights2002, weather_data, by = 'key')
+flights_weather2002 <- merge(flights_weather2002, weather_data, by.x = 'key2', by.y = 'key')
+flights_weather2003 <- merge(flights2003, weather_data, by = 'key')
+flights_weather2003 <- merge(flights_weather2003, weather_data, by.x = 'key2', by.y = 'key')
+flights_weather2004 <- merge(flights2004, weather_data, by = 'key')
+flights_weather2004 <- merge(flights_weather2004, weather_data, by.x = 'key2', by.y = 'key')
+flights_weather2005 <- merge(flights2005, weather_data, by = 'key')
+flights_weather2005 <- merge(flights_weather2005, weather_data, by.x = 'key2', by.y = 'key')
+flights_weather2006 <- merge(flights2006, weather_data, by = 'key')
+flights_weather2006 <- merge(flights_weather2006, weather_data, by.x = 'key2', by.y = 'key')
+flights_weather2007 <- merge(flights2007, weather_data, by = 'key')
+flights_weather2007 <- merge(flights_weather2007, weather_data, by.x = 'key2', by.y = 'key')
+flights_weather2008 <- merge(flights2008, weather_data, by = 'key')
+flights_weather2008 <- merge(flights_weather2008, weather_data, by.x = 'key2', by.y = 'key')
+
+# The output is one dataset for each year, consisting of the original flight data, the weather at the origin airport, and the weather at the destination airport (72 variables total)
+fwrite(flights_weather2001, 'flights_weather2001.csv')
+fwrite(flights_weather2002, 'flights_weather2002.csv')
+fwrite(flights_weather2003, 'flights_weather2003.csv')
+fwrite(flights_weather2004, 'flights_weather2004.csv')
+fwrite(flights_weather2005, 'flights_weather2005.csv')
+fwrite(flights_weather2006, 'flights_weather2006.csv')
+fwrite(flights_weather2007, 'flights_weather2007.csv')
+fwrite(flights_weather2008, 'flights_weather2008.csv')
+```
+
+After the merge, we combined these separate datafiles as follows:  
 
 ```{r, eval = FALSE}
 ##read separate files in the dataset folder and conbine their rows 
@@ -55,12 +307,16 @@ list_file = data.table::fread("out.csv")
 dat = filter(list_file, Cancelled==0&Diverted==0)
 ##exclude nonsense index
 dat = subset(dat, -c(V1))
+
 ##exclude irrelavent covariates
-dat = select(dat,-c(key2, key, DepTime, `STN---.x`, YEARMODA.x, `STN---.y`, YEARMODA.y,     
+
+
+dat = select(dat,-c(key2, key, DepTime, `STN---.x`, YEARMODA.x, `STN---.y`, YEARMODA.y,    
                     CRSDepTime, ArrTime, CRSArrTime, ActualElapsedTime, CRSElapsedTime, 
-                    Cancelled, CancellationCode, Diverted,CarrierDelay, WeatherDelay, 
-                    NASDelay, SecurityDelay, LateAircraftDelay, STP.x, STP.y, GUST.x, GUST.y)) 
-#create 'season' covariate
+                    Cancelled, CancellationCode, Diverted, CarrierDelay, WeatherDelay, 
+                    NASDelay, SecurityDelay, LateAircraftDelay, STP.x, STP.y, GUST.x, GUST.y))
+#create season covariate
+
 dat = mutate(dat, season = NA)
 dat[which(dat$Month==1|dat$Month==2|dat$Month==3),]$season="winter"
 dat[which(dat$Month==4|dat$Month==5|dat$Month==6),]$season="spring"
@@ -106,6 +362,7 @@ had to resort to cluster commputing for that component
 
 ### Analytics
 
+
 #### Descriptive Statistics
 
 Sneak preview of the data?
@@ -130,7 +387,6 @@ select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEM
               WDSP.y, MXSPD.y, MAX.y, MIN.y, PRCP.y, SNDP.y)) %>% cor(,use = "complete.obs")
 ```
 
-<<<<<<< HEAD
 bigmemory package (simplified to all number type columns, no need to use ff)  
 
 
@@ -157,17 +413,18 @@ dat$Snow.y = as.factor(dat$Snow.y)
 dat$Hail.y = as.factor(dat$Hail.y)
 dat$Thunder.y = as.factor(dat$Thunder.y)
 dat$Tornado.y = as.factor(dat$Tornado.y)
-=======
-Results of corelation, not many factors highly correlated w/ each other.
+```
+
+Results of correlation, not many factors highly correlated w/ each other.
 
 
-#### Simple Linear regression
 
-Simple Linear Regresion was performed with the bianalytics package. 
+#### Linear regression
+
+Linear Regresion was performed with the bianalytics package. 
 
 ```{r, eval = FALSE}
 #certain variables were chosen to be categorical via as.factor()
->>>>>>> fork/master
 lr_result = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TaxiIn + TaxiOut + TEMP.x +
                                 DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + TEMP.y + DEWP.y +
                                 SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest +
@@ -175,7 +432,7 @@ lr_result = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek +
                                 Hail.y + Thunder.y + Tornado.y + season, data = dat )
 ```
 
-<<<<<<< HEAD
+
 Multilinearity diagnosis
 
 ```{r}
@@ -204,7 +461,7 @@ if (all(result[, 2] == 1)) result <- result[, 1] else result[, 3] <- result[, 1]
 ```
 biganalytics package
 lme4
-=======
+
 Write results of regression here, what results are significant and their estimate on delay (i'll look at the xlsx and try to import some of the data into a table) like so:  
 
 Varaible | Estimate | p-value 
@@ -218,14 +475,9 @@ Thunder | filler | 0.23423423425
 
 lme4 - Error: cannot allocate vector of size 256.0 Mb on Rstudio
 (will expand a bit)
->>>>>>> fork/master
+
 
 (I added results based on the output you gave, try to expand a bit)
-
-### Visualization
-
-(add what stuff you did here ralph)
-tidyverse family
 
 
 ## Results  
@@ -235,18 +487,6 @@ put linear regression results here
 put lmm results here (if we get them)
 
 put weather results here
-
-
-![Weather Heatmap](heatmap1.png)\newline
-
-
-analysis of this figure goes here
-
-
-![](heatmap2.png)\newline
-
-
-analysis of this figure goes here 
 
 
 
