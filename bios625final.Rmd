@@ -303,15 +303,20 @@ Third, we add a covariate named "Season" (i.e. Fall, Spring) based on the "Month
 Snippets of our data cleaning can be shown below:  
 ```{r, eval = FALSE}
 list_file = data.table::fread("out.csv")
-
+##control possible confounders 
 dat = filter(list_file, Cancelled==0&Diverted==0)
+##exclude nonsense index
 dat = subset(dat, -c(V1))
+
+##exclude irrelavent covariates
+
 
 dat = select(dat,-c(key2, key, DepTime, `STN---.x`, YEARMODA.x, `STN---.y`, YEARMODA.y,    
                     CRSDepTime, ArrTime, CRSArrTime, ActualElapsedTime, CRSElapsedTime, 
                     Cancelled, CancellationCode, Diverted, CarrierDelay, WeatherDelay, 
                     NASDelay, SecurityDelay, LateAircraftDelay, STP.x, STP.y, GUST.x, GUST.y))
 #create season covariate
+
 dat = mutate(dat, season = NA)
 dat[which(dat$Month==1|dat$Month==2|dat$Month==3),]$season="winter"
 dat[which(dat$Month==4|dat$Month==5|dat$Month==6),]$season="spring"
@@ -375,13 +380,43 @@ select(dat, FlightNum) %>% table() ## too many categories
 select(dat, TailNum) %>% table() ## too many categories
 select(dat, Origin) %>% table()
 select(dat, Dest) %>% table()
+
 ##obtain correlation coefficients of numeric covariates using complete data
 select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEMP.x, DEWP.x, SLP.x, VISIB.x,
               WDSP.x, MXSPD.x, MAX.x, MIN.x, PRCP.x, SNDP.x, TEMP.y, DEWP.y, SLP.y, VISIB.y,
               WDSP.y, MXSPD.y, MAX.y, MIN.y, PRCP.y, SNDP.y)) %>% cor(,use = "complete.obs")
 ```
 
+bigmemory package (simplified to all number type columns, no need to use ff)  
+
+
+### Analytics
+
+Linear regression based on descriptive result
+```{r}
+dat$UniqueCarrier = as.factor(dat$UniqueCarrier)
+dat$Origin = as.factor(dat$Origin)
+dat$Dest = as.factor(dat$Dest)
+dat$season = as.factor(dat$season)
+dat$Year = as.factor(dat$Year)
+dat$Month = as.factor(dat$Month)
+dat$DayOfWeek = as.factor(dat$DayOfWeek)
+dat$Fog.x = as.factor(dat$Fog.x)
+dat$Rain.x = as.factor(dat$Rain.x)
+dat$Snow.x = as.factor(dat$Snow.x)
+dat$Hail.x = as.factor(dat$Hail.x)
+dat$Thunder.x = as.factor(dat$Thunder.x)
+dat$Tornado.x = as.factor(dat$Tornado.x)
+dat$Fog.y = as.factor(dat$Fog.y)
+dat$Rain.y = as.factor(dat$Rain.y)
+dat$Snow.y = as.factor(dat$Snow.y)
+dat$Hail.y = as.factor(dat$Hail.y)
+dat$Thunder.y = as.factor(dat$Thunder.y)
+dat$Tornado.y = as.factor(dat$Tornado.y)
+```
+
 Results of correlation, not many factors highly correlated w/ each other.
+
 
 
 #### Linear regression
@@ -397,6 +432,36 @@ lr_result = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek +
                                 Hail.y + Thunder.y + Tornado.y + season, data = dat )
 ```
 
+
+Multilinearity diagnosis
+
+```{r}
+#####obtain GVIF for multilinearity diagnosis
+v = vcov(lr_result)
+assign <- lr_result$assign
+if (names(coefficients(lr_result)[1]) == "(Intercept)") {
+  v <- v[-1, -1]
+  assign <- assign[-1]
+}
+terms <- labels(terms(lr_result))
+n.terms <- length(terms)
+R <- cov2cor(v)
+detR <- det(R)
+result <- matrix(0, n.terms, 3)
+rownames(result) <- terms
+colnames(result) <- c("GVIF", "Df", "GVIF^(1/(2*Df))")
+for (term in 1:n.terms) {
+  subs <- which(assign == term)
+  result[term, 1] <- det(as.matrix(R[subs, subs])) *
+    det(as.matrix(R[-subs, -subs])) / detR
+  result[term, 2] <- length(subs)
+}
+if (all(result[, 2] == 1)) result <- result[, 1] else result[, 3] <- result[, 1]^(1/(2 * result[, 2]))
+#######
+```
+biganalytics package
+lme4
+
 Write results of regression here, what results are significant and their estimate on delay (i'll look at the xlsx and try to import some of the data into a table) like so:  
 
 Varaible | Estimate | p-value 
@@ -410,6 +475,7 @@ Thunder | filler | 0.23423423425
 
 lme4 - Error: cannot allocate vector of size 256.0 Mb on Rstudio
 (will expand a bit)
+
 
 (I added results based on the output you gave, try to expand a bit)
 
