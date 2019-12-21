@@ -21,6 +21,7 @@ summary(model_test)
 
 #change parameters as needed
 tic("LMM model runtime")
+
 flight_model <- lmer(DepDelay ~ Year + Fog.y + Rain.y + Snow.y + Hail.y + Thunder.y + 
                        TEMP.y + (1 | Year), flight_data)
 toc()
