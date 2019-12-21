@@ -347,7 +347,7 @@ The bigmemory package had troubles with loading a 9 GB file on a intel i7-6600U,
 
 ### Descriptive Statistics
 
-Sneak preview of the data?
+To preview our data, we were interested in obtaining descriptive statistics for each categories. We investigated variables such as the mean, variance, frequency, and correlation. 
 
 ```{r, eval = FALSE}
 ##
@@ -363,7 +363,8 @@ select(dat, FlightNum) %>% table()
 ##obtain correlation coefficients of numeric covariates using complete data
 select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEMP.x, DEWP.x, SLP.x, VISIB.x, WDSP.x, MXSPD.x, MAX.x, MIN.x, PRCP.x, SNDP.x, TEMP.y, DEWP.y, SLP.y, VISIB.y, WDSP.y, MXSPD.y, MAX.y, MIN.y, PRCP.y, SNDP.y)) %>% cor(,use = "complete.obs")
 ```
-Results of correlation, not many factors highly correlated w/ each other.
+
+From our reslts, most varirables had low correlation with each other. Some factors such as raw temperature and maximum temperature were highly correlated, but as a result of using the same information (reword...). The only other noticably highly correlated pair was temperature and dew point, which we deemed to be not a large issu. 
 
 ### Linear regression
 
@@ -381,7 +382,6 @@ lr_result = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek +
 
 Full results of the output can be found in the xlsx file "LM result for all covariates".
 
-Multicolinearity diagnosis
 
 ```{r,eval = FALSE, echo = FALSE}
 #####obtain GVIF for multilinearity diagnosis
@@ -408,7 +408,9 @@ if (all(result[, 2] == 1)) result <- result[, 1] else result[, 3] <- result[, 1]
 #######
 ```
 
+We additionally diagnosed our model for issues with multicolinearity and found 
 
+_no issues or some issues with variables_ whatever result we had...
 
 ### Linear Mixed Models
 
@@ -421,27 +423,38 @@ We ran the analysis on the biostatistics computing cluster.
 
 ### Linear Regression
 
+Note: Not all outputs had a p-value attached to it.
+
 Arrival Delays:  
 
-Variable | Estimate | p-value 
--------- | -------- | -------
-Temperature | 42342 | 0.234234
-Year | adsf | 0.2384
-Month | asdf | 0.9234
-Thunder | filler | 0.23423423425
+Yearly Trends:
+
+Year (Ref 2001) | Estimate  | Standard Error
+-------- | ------- | -------
+2002 | -2.6618 | 0.0274
+2003 | -2.7028 | 0.027
+2004 | 0.06525 | 0.0262
+2005 | 1.9198  | 0.0269
+2006 | 3.6907  | 0.0273 
+2007 | 5.3389  | 0.0272
+2008 | 3.1277  | 0.0276
+
+Monthly Trends:
+
+
+
+
+Variable | Estimate | Standard Error | p-value 
+-------- | -------- | ------- | ---------
+Temperature | -0.0868 | 0.0012 | N/A
+ |  | |
+Month | asdf | 0.9234 |
+Thunder | filler | 0.23423423425 |
 
 sources of significant delays  
 
-Departure Delays:  
+Departure delays were largely in part similar to arrival delays, as we suspect that flights that 
 
-Variable | Estimate | p-value 
--------- | -------- | -------
-Temperature | 42342 | 0.234234
-Year | adsf | 0.2384
-Month | asdf | 0.9234
-Thunder | filler | 0.23423423425  
-
-oWo  
 
 ### Linear Mixed Models(?)
 
