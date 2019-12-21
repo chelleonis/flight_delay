@@ -22,13 +22,12 @@ Delayed flights are a common occurance in the airline industry, with 25 million 
 
 ## Methods
 
-Our dataset contains, at its base, 29 variables and 130 million entries of flight data, containing variables such as flight distance, arrival delay, and calendar month. We trimmed the 12 gigabyte dataset into our years of interest, reducing its size to around 4 GB (?).    
-
-We then combined weather data corresponding with the data at the 58 largest airports, including variables such as tempearture, rain (categorical), and wind speed.     
+Our dataset contains, at its base, 29 variables and 130 million entries of flight data, containing variables such as flight distance, arrival delay, and calendar month. The base dataset is approximately 12 GB in size. 
 
 ### Data Cleaning and Pre-processing
 
-read separate files in the dataset folder and conbine their rows 
+We first had to combine yearly weather data to our base dataset, by splitting the dataset into managable chunks (years). The weather datasets included variables such as tempearture, rain (categorical), and wind speed. We combined these separate dateafiles as follows:  
+
 ```{r, eval = FALSE}
 ##read separate files in the dataset folder and conbine their rows 
 dataFiles = list.files(pattern = "*.csv") %>% 
@@ -37,13 +36,19 @@ dataFiles = list.files(pattern = "*.csv") %>%
 write.csv(dataFiles,file='out.csv')
 ```
 
-biostat cluster using unix script - pre-prep and combining the separate data years
-(cp in code a bit later), but rbind in the cluster worked, merging the datafiles together 
-to 
+The operation above was performed in the biostatisitics computing cluster using bash scripts, as the operation was too big to perform in R (R would be unable to create a vector of that memory size(??)). 
 
-There are 72 variables in the table. 
-Firstly, we deleted the cancelled and diverted flights which may have different situation with other common delayed flights. Secondly,to make the analysis more efficiently, we deleted some of the variables not included in the following analysis and make the table smaller for several reasons: 1 providing little information or providing information contained in other variables; 2 not included in this project objectives; 3 high ratio missing data. Third, we add covariate "season" based on "Month" value.
 
+All in all, our dataset contains 72 varaibles, which we then trimmed. Firstly, we deleted the cancelled and diverted flights that may have different situations with other common delayed flights. Secondly, to make the analysis more efficient, we removed variables meeting the following criteria:   
+1. Provides little information on flight delays
+2. Provides information contained in other variables
+3. Not included in this project objectives
+4. Variable has columns with only 'NA'
+5. Variables with highly missing data  
+
+Third, we add a covariate named "Season" (i.e. Fall, Spring) based on the "Month" value.  
+
+Snippets of our data cleaning can be shown below:  
 ```{r, eval = FALSE}
 list_file = data.table::fread("out.csv")
 
@@ -60,88 +65,13 @@ dat[which(dat$Month==1|dat$Month==2|dat$Month==3),]$season="winter"
 dat[which(dat$Month==4|dat$Month==5|dat$Month==6),]$season="spring"
 dat[which(dat$Month==7|dat$Month==8|dat$Month==9),]$season="summer"
 dat[which(dat$Month==10|dat$Month==10|dat$Month==11),]$season="fall"
-##
 ```
 
-Descriptive statistics of variables.
-```{r,eval = FALSE}
-##character variables:UniqueCarrier, FlightNum, TailNum, Origin, Dest, Fog.x, Rain.x, Snow.x, Hail.x, Thunder.x, Tornado.x,
-                    #Fog.y, Rain.y, Snow.y, Hail.y, Thunder.y, Tornado.y,season.
-##numeric variables:Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEMP.x, DEWP.x, SLP.x, VISIB.x,
-                   #WDSP.x, MXSPD.x, MAX.x, MIN.x, PRCP.x, SNDP.x, TEMP.y, DEWP.y, SLP.y, VISIB.y,
-                   #WDSP.y, MXSPD.y, MAX.y, MIN.y, PRCP.y, SNDP.y
-##obtain descriptive statistic for numeric covaraites
-select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEMP.x, DEWP.x, SLP.x, VISIB.x,
-              WDSP.x, MXSPD.x, MAX.x, MIN.x, PRCP.x, SNDP.x, TEMP.y, DEWP.y, SLP.y, VISIB.y,
-              WDSP.y, MXSPD.y, MAX.y, MIN.y, PRCP.y, SNDP.y)) %>% summary()
-select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEMP.x, DEWP.x, SLP.x, VISIB.x,
-              WDSP.x, MXSPD.x, MAX.x, MIN.x, PRCP.x, SNDP.x, TEMP.y, DEWP.y, SLP.y, VISIB.y,
-              WDSP.y, MXSPD.y, MAX.y, MIN.y, PRCP.y, SNDP.y)) %>% var()
-##obtain frequency tables for categorical covaraites
-select(dat, UniqueCarrier) %>% table()
-select(dat, FlightNum) %>% table() ## too many categories
-select(dat, TailNum) %>% table() ## too many categories
-select(dat, Origin) %>% table()
-select(dat, Dest) %>% table()
-select(dat, Fog.x) %>% table()
-select(dat, Rain.x) %>% table()
-select(dat, Snow.x) %>% table()
-select(dat, Hail.x) %>% table()
-select(dat, Thunder.x) %>% table()
-select(dat, Tornado.x) %>% table()
-select(dat, Fog.y) %>% table()
-select(dat, Rain.y) %>% table()
-select(dat, Snow.y) %>% table()
-select(dat, Hail.y) %>% table()
-select(dat, Thunder.y) %>% table()
-select(dat, Tornado.y) %>% table()
-select(dat, season) %>% table()
-##obtain correlation coefficients of numeric covariates using complete data
-select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEMP.x, DEWP.x, SLP.x, VISIB.x,
-              WDSP.x, MXSPD.x, MAX.x, MIN.x, PRCP.x, SNDP.x, TEMP.y, DEWP.y, SLP.y, VISIB.y,
-              WDSP.y, MXSPD.y, MAX.y, MIN.y, PRCP.y, SNDP.y)) %>% cor(,use = "complete.obs")
-##There is no highly correlations between pairwise covariates, except for MIN.x, MAX.x, MIN.y, MAX.y.
-```
-
-Linear regression based on descriptive result
-```{r, eval = FALSE}
-dat$UniqueCarrier = as.factor(dat$UniqueCarrier)
-dat$Origin = as.factor(dat$Origin)
-dat$Dest = as.factor(dat$Dest)
-dat$season = as.factor(dat$season)
-dat$Year = as.factor(dat$Year)
-dat$Month = as.factor(dat$Month)
-dat$DayOfWeek = as.factor(dat$DayOfWeek)
-dat$Fog.x = as.factor(dat$Fog.x)
-dat$Rain.x = as.factor(dat$Rain.x)
-dat$Snow.x = as.factor(dat$Snow.x)
-dat$Hail.x = as.factor(dat$Hail.x)
-dat$Thunder.x = as.factor(dat$Thunder.x)
-dat$Tornado.x = as.factor(dat$Tornado.x)
-dat$Fog.y = as.factor(dat$Fog.y)
-dat$Rain.y = as.factor(dat$Rain.y)
-dat$Snow.y = as.factor(dat$Snow.y)
-dat$Hail.y = as.factor(dat$Hail.y)
-dat$Thunder.y = as.factor(dat$Thunder.y)
-dat$Tornado.y = as.factor(dat$Tornado.y)
-lr_result = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TaxiIn + TaxiOut + TEMP.x +
-                                DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + TEMP.y + DEWP.y +
-                                SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest +
-                                Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + Fog.y + Rain.y + Snow.y +
-                                Hail.y + Thunder.y + Tornado.y + season, data = dat )
-```
-
-bigmemory package (simplified to all number type columns, no need to use ff)  
-troubles with loading 9 GB file on a intel i7-6600U, 2.40 GHz, with 8GB memory
-had to restort to cluster commputing
-
-(even bigmemory package would crash)
+### Data Importing 
 
 data was loaded in a variety of manners, 
 for the parts we could break down by year, either
 read.table or read.csv were used.
-
-
 ```{r,eval = FALSE}
 #fpath <- file.path(path,"flight_weather_cleaned.csv")
 #tic("fread 6gb data import")
@@ -149,9 +79,7 @@ read.table or read.csv were used.
 #toc()
 ```
 for the cleaned data, fread 6gb data import: 180.45 sec elapsed, approximately 
-3 minutes to import the data.
-
-32 million observations
+3 minutes to import the data fr 32 million observations.
 
 ```{r, eval = FALSE}
 
@@ -167,12 +95,68 @@ for the cleaned data, fread 6gb data import: 180.45 sec elapsed, approximately
 > toc()
 #test for read.csv: 2654.62 sec elapsed
 ```
-each data table is around 1 gigabyte in size
+whereas for the read.csv took 40 minutes to import
+
+
+the bigmemory package (simplified to all number type columns, no need to use ff)  
+troubles with loading a 9 GB file on a intel i7-6600U, 2.40 GHz, with 8GB memory, where it would crash Rstudio midway through.
+
+had to resort to cluster commputing for that component
 
 ### Analytics
 
-biganalytics package
-lme4 - Error: cannot allocate vector of size 256.0 Mb lol....
+#### Descriptive Statistics
+
+Sneak preview of the data?
+
+```{r, eval = FALSE}
+##
+#Descriptive Statistics of Variables: (NOT ALL CODE INCLUDED)
+select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEMP.x, DEWP.x, SLP.x, VISIB.x,
+              WDSP.x, MXSPD.x, MAX.x, MIN.x, PRCP.x, SNDP.x, TEMP.y, DEWP.y, SLP.y, VISIB.y,
+              WDSP.y, MXSPD.y, MAX.y, MIN.y, PRCP.y, SNDP.y)) %>% summary()
+
+##obtain frequency tables for categorical covaraites (NOT ALL CATEGORIES INCLUDED)
+select(dat, UniqueCarrier) %>% table()
+select(dat, FlightNum) %>% table() ## too many categories
+select(dat, TailNum) %>% table() ## too many categories
+select(dat, Origin) %>% table()
+select(dat, Dest) %>% table()
+##obtain correlation coefficients of numeric covariates using complete data
+select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEMP.x, DEWP.x, SLP.x, VISIB.x,
+              WDSP.x, MXSPD.x, MAX.x, MIN.x, PRCP.x, SNDP.x, TEMP.y, DEWP.y, SLP.y, VISIB.y,
+              WDSP.y, MXSPD.y, MAX.y, MIN.y, PRCP.y, SNDP.y)) %>% cor(,use = "complete.obs")
+```
+
+Results of corelation, not many factors highly correlated w/ each other.
+
+
+#### Simple Linear regression
+
+Simple Linear Regresion was performed with the bianalytics package. 
+
+```{r, eval = FALSE}
+#certain variables were chosen to be categorical via as.factor()
+lr_result = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TaxiIn + TaxiOut + TEMP.x +
+                                DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + TEMP.y + DEWP.y +
+                                SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest +
+                                Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + Fog.y + Rain.y + Snow.y +
+                                Hail.y + Thunder.y + Tornado.y + season, data = dat )
+```
+
+Write results of regression here, what results are significant and their estimate on delay (i'll look at the xlsx and try to import some of the data into a table) like so:  
+
+Varaible | Estimate | p-value 
+-------- | -------- | -------
+Temperature | 42342 | 0.234234
+Year | adsf | 0.2384
+Month | asdf | 0.9234
+Thunder | filler | 0.23423423425  
+
+#### Linear Mixed Models
+
+lme4 - Error: cannot allocate vector of size 256.0 Mb on Rstudio
+(will expand a bit)
 
 (I added results based on the output you gave, try to expand a bit)
 
@@ -209,11 +193,18 @@ analysis of this figure goes here
 Flight delays may be indicated by the following significant factors: 
 
 Our work was comprehensive, but not exhaustive, with the following topics of interest for future investigation
-* Pre- 9/11 era and comparison
-  +
-* Full time dataset is huge, would require different forms of data storage
+* Pre 9/11 Era comparison
+  + As our analysis contains information on post-9/11, where security measures have been tightened signficantly, we would like to see if effects that are signficant in causing delays in this era are more pronounced before 9/11
+* Full dataset (1978-2008) would be too large for our methods used (>20 GB)
   + having computation troubles as seen above, may need different forms
-  + not limited to cluster computng
+  + Would require different forms of data storage
+  + Look into using RHadoop
+  + Not limited to cluster computing
 * Investigation of different models 
-* Dealing with missing data on a large scale:
+* Dealing with missing data on a large scale
 * Cross-validation
+
+## Special Acknowledgements
+
+Special Thanks to Daniel Barker and Rob(??) for their help and availibility in teaching us how to use the computing clusters. 
+
