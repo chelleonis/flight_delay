@@ -158,13 +158,13 @@ dat$Hail.y = as.factor(dat$Hail.y)
 dat$Thunder.y = as.factor(dat$Thunder.y)
 dat$Tornado.y = as.factor(dat$Tornado.y)
 =======
-Results of corelation, not many factors highly correlated w/ each other.
+Results of correlation, not many factors highly correlated w/ each other.
 
 
 #### Simple Linear regression
 
 Simple Linear Regresion was performed with the bianalytics package. 
-
+```
 ```{r, eval = FALSE}
 #certain variables were chosen to be categorical via as.factor()
 >>>>>>> fork/master
@@ -173,6 +173,12 @@ lr_result = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek +
                                 SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest +
                                 Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + Fog.y + Rain.y + Snow.y +
                                 Hail.y + Thunder.y + Tornado.y + season, data = dat )
+
+Dep_result = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.x + DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + UniqueCarrier + Origin + Dest + Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + season, data = dat )
+
+Arr_result = biglm.big.matrix (ArrDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.y + DEWP.y + SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest + Fog.y + Rain.y + Snow.y + Hail.y + Thunder.y + Tornado.y + season, data = dat )
+
+
 ```
 
 <<<<<<< HEAD
@@ -180,28 +186,127 @@ Multilinearity diagnosis
 
 ```{r}
 #####obtain GVIF for multilinearity diagnosis
-v = vcov(lr_result)
-assign <- lr_result$assign
-if (names(coefficients(lr_result)[1]) == "(Intercept)") {
-  v <- v[-1, -1]
-  assign <- assign[-1]
+VIF = function(lr_result){
+  v = vcov(lr_result)
+  assign <- lr_result$assign
+  if (names(coefficients(lr_result)[1]) == "(Intercept)") {
+    v <- v[-1, -1]
+    assign <- assign[-1]
+  }
+  terms <- labels(terms(lr_result))
+  n.terms <- length(terms)
+  R <- cov2cor(v)
+  detR <- det(R)
+  result <- matrix(0, n.terms, 3)
+  rownames(result) <- terms
+  colnames(result) <- c("GVIF", "Df", "GVIF^(1/(2*Df))")
+  for (term in 1:n.terms) {
+    subs <- which(assign == term)
+    result[term, 1] <- det(as.matrix(R[subs, subs])) *
+      det(as.matrix(R[-subs, -subs])) / detR
+    result[term, 2] <- length(subs)
+  }
+  if (all(result[, 2] == 1)) result <- result[, 1] else result[, 3] <- result[, 1]^(1/(2 * result[, 2]))
 }
-terms <- labels(terms(lr_result))
-n.terms <- length(terms)
-R <- cov2cor(v)
-detR <- det(R)
-result <- matrix(0, n.terms, 3)
-rownames(result) <- terms
-colnames(result) <- c("GVIF", "Df", "GVIF^(1/(2*Df))")
-for (term in 1:n.terms) {
-  subs <- which(assign == term)
-  result[term, 1] <- det(as.matrix(R[subs, subs])) *
-    det(as.matrix(R[-subs, -subs])) / detR
-  result[term, 2] <- length(subs)
-}
-if (all(result[, 2] == 1)) result <- result[, 1] else result[, 3] <- result[, 1]^(1/(2 * result[, 2]))
+
+VIF(lr_result)
+VIF(Dep_result)
+VIF(Arr_result)
 #######
 ```
+```{r}
+##create k folds to do cross validation
+flds <- createFolds(dat, k = 150, list = TRUE, returnTrain = FALSE)
+n=length(flds)
+##functions for obtain fitted values based of estimated coefficients
+##producing dummy variables
+factorize=function(name,data=dat){
+  len = nrow(dat)
+  q = levels(name)
+  q = sort(q)
+  group_num = length(q)
+  x_matrix = matrix(0, len, group_num)
+  ###produce indicate variable for each group of the categorical variable x
+  for (i in 1:group_num) {
+    x_matrix[,i] = name==q[i]
+  }
+  x_matrix=x_matrix[,-1]
+  return(x_matrix)
+}
+###PRESS
+sum_rresidual=0
+SSY=0
+Ybar=mean(dat$DepDelay)
+n1=0
+b = cbind(rep(1,nrow(dat)),factorize(dat$Year), dat$Month, dat$DayofMonth, factorize(dat$DayOfWeek), dat$Distance, dat$TaxiIn, 
+          dat$TaxiOut, dat$TEMP.x,dat$DEWP.x, dat$SLP.x, dat$VISIB.x, dat$WDSP.x, dat$MXSPD.x, dat$PRCP.x, dat$SNDP.x, dat$TEMP.y, 
+          dat$DEWP.y,dat$SLP.y, dat$VISIB.y, dat$WDSP.y, dat$MXSPD.y, dat$PRCP.y, dat$SNDP.y, factorize(dat$UniqueCarrier), 
+          factorize(dat$Origin),factorize(dat$Dest),factorize(dat$Fog.x), factorize(dat$Rain.x), factorize(dat$Snow.x), 
+          factorize(dat$Hail.x),factorize(dat$Thunder.x), factorize(dat$Tornado.x), factorize(dat$Fog.y), factorize(dat$Rain.y), 
+          factorize(dat$Snow.y),factorize(dat$Hail.y), factorize(dat$Thunder.y), factorize(dat$Tornado.y),factorize(dat$season))
+
+for (i in 1:n){
+  a = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TaxiIn + TaxiOut + TEMP.x +
+                    DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + TEMP.y + DEWP.y +
+                    SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest +
+                    Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + Fog.y + Rain.y + Snow.y +
+                    Hail.y + Thunder.y + Tornado.y + season, data = dat[-flds[[i]],] )
+  x=b[flds[[i]],]
+  c=x%*%summary(a)[[2]][,1]
+  c=dat[flds[[i]],]$DepDelay-c
+  SSY=SSY+sum((dat[flds[[i]],]$DepDelay-Ybar)^2)
+  n1=n1+length(c)
+  sum_rresidual=sum_rresidual+sum(c^2)
+}
+R_PRESS=1-sum_rresidual/SSY
+R_PRESS
+
+####PRESS for DepDelay
+sum_rresidual=0
+SSY=0
+Ybar=mean(dat$DepDelay)
+n1=0
+b=cbind(rep(1,nrow(dat)),factorize(dat$Year), dat$Month, dat$DayofMonth, factorize(dat$DayOfWeek), dat$Distance, dat$TEMP.x,
+        dat$DEWP.x, dat$SLP.x, dat$VISIB.x, dat$WDSP.x, dat$MXSPD.x, dat$PRCP.x, dat$SNDP.x, factorize(dat$UniqueCarrier),
+        factorize(dat$Origin),factorize(dat$Dest),factorize(dat$Fog.x), factorize(dat$Rain.x), factorize(dat$Snow.x), 
+        factorize(dat$Hail.x),factorize(dat$Thunder.x), factorize(dat$Tornado.x), factorize(dat$season))
+for (i in 1:n){
+a = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.x + DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + UniqueCarrier + Origin + Dest + Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + season, data = dat[-flds[[i]],] )
+x=b[flds[[i]],]
+c=x%*%summary(a)[[2]][,1]
+c=dat[flds[[i]],]$DepDelay-c
+SSY=SSY+sum((dat[flds[[i]],]$DepDelay-Ybar)^2)
+n1=n1+length(c)
+sum_rresidual=sum_rresidual+sum(c^2)
+}
+R_PRESS=1-sum_rresidual/SSY
+R_PRESS
+
+###PRESS for ArrDelay
+sum_rresidual=0
+n1=0
+Ybar=mean(dat$ArrDelay)
+SSY=0
+b=cbind(rep(1,nrow(dat)),factorize(dat$Year), dat$Month, dat$DayofMonth, factorize(dat$DayOfWeek), dat$Distance, dat$TEMP.y, dat$DEWP.y,
+        dat$SLP.y, dat$VISIB.y, dat$WDSP.y, dat$MXSPD.y, dat$PRCP.y, dat$SNDP.y, factorize(dat$UniqueCarrier), factorize(dat$Origin),
+        factorize(dat$Dest), factorize(dat$Fog.y), factorize(dat$Rain.y), factorize(dat$Snow.y),
+        factorize(dat$Hail.y), factorize(dat$Thunder.y), factorize(dat$Tornado.y),factorize(dat$season))
+
+
+for (i in 1:n){
+a = biglm.big.matrix (ArrDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.y + DEWP.y + SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest + Fog.y + Rain.y + Snow.y + Hail.y + Thunder.y + Tornado.y + season, data = dat[-flds[[i]],] )
+x=b[flds[[i]],]
+c=x%*%summary(a)[[2]][,1]
+c=dat[flds[[i]],]$ArrDelay-c
+SSY=SSY+sum((dat[flds[[i]],]$ArrDelay-Ybar)^2)
+n1=n1+length(c)
+sum_rresidual=sum_rresidual+sum(c^2)
+}
+R_PRESS=1-sum_rresidual/SSY
+R_PRESS
+
+```
+
 biganalytics package
 lme4
 =======
@@ -221,7 +326,17 @@ lme4 - Error: cannot allocate vector of size 256.0 Mb on Rstudio
 >>>>>>> fork/master
 
 (I added results based on the output you gave, try to expand a bit)
+```{r}
+library(car)
+flight_model1 <- lmer(DepDelay ~ Year + Fog.y + Rain.y + Snow.y + Hail.y + Thunder.y +
+                       TEMP.y + (1 | Year), dat)
+vif(flight_model1)
 
+
+flight_model2 <- lmer(ArrDelay ~ Year + Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x +
+                       TEMP.x + (1 | Year), dat)
+vif(flight_model2)
+```
 ### Visualization
 
 (add what stuff you did here ralph)
