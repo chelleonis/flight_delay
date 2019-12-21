@@ -1,8 +1,9 @@
 ---
 title: "Biostat 625 Final Project - Post 9/11 Flight Delay"
+subtitle: https://github.com/chelleonis/flight_delay
 author: "Ralph Jiang, Xuelin Gu, Allen Li"
 date: "December 18, 2019"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
@@ -17,20 +18,18 @@ library(biganalytics)
 
 ## Introduction
 
-Wanted to investigate and predict and investigate trends in flight delay
-
+Delayed flights are a common occurance in the airline industry, with 25 million flights being delayed (for at least 15 minutes) for 20 years of data. The issue of delayed flights is seemingly unpredictable with so many factors preceding a successful flight. For the customer then, it is of increased importance to be able to anticipate what may cause a delay in their flight. To try to shed some light on the issue, we analyzed a large dataset from the post 9/11 era (2001-2008), given by the bureau of transportation statistics. The cuases of 
 
 ## Methods
 
-### Data Processing and Storage
-(add in what you did ralph to merge the weather data)
+Our dataset contains, at its base, 29 variables and 130 million entries of flight data, containing variables such as flight distance, arrival delay, and calendar month. We trimmed the 12 gigabyte dataset into our years of interest, reducing its size to around 4 GB (?).    
 
-biostat cluster using unix script - pre-prep and combining the separate data years
-(cp in code a bit later), but rbind in the cluster worked, merging the datafiles together 
-to 
+We then combined weather data corresponding with the data at the 58 largest airports, including variables such as tempearture, rain (categorical), and wind speed.     
+
+### Data Cleaning and Pre-processing
 
 read separate files in the dataset folder and conbine their rows 
-```{r}
+```{r, eval = FALSE}
 ##read separate files in the dataset folder and conbine their rows 
 dataFiles = list.files(pattern = "*.csv") %>% 
   lapply(read.csv, stringsAsFactors=F) %>% 
@@ -38,11 +37,14 @@ dataFiles = list.files(pattern = "*.csv") %>%
 write.csv(dataFiles,file='out.csv')
 ```
 
-Data cleaning and preprocessing
+biostat cluster using unix script - pre-prep and combining the separate data years
+(cp in code a bit later), but rbind in the cluster worked, merging the datafiles together 
+to 
 
 There are 72 variables in the table. 
 Firstly, we deleted the cancelled and diverted flights which may have different situation with other common delayed flights. Secondly,to make the analysis more efficiently, we deleted some of the variables not included in the following analysis and make the table smaller for several reasons: 1 providing little information or providing information contained in other variables; 2 not included in this project objectives; 3 high ratio missing data. Third, we add covariate "season" based on "Month" value.
-```{r}
+
+```{r, eval = FALSE}
 list_file = data.table::fread("out.csv")
 
 dat = filter(list_file, Cancelled==0&Diverted==0)
@@ -62,7 +64,7 @@ dat[which(dat$Month==10|dat$Month==10|dat$Month==11),]$season="fall"
 ```
 
 Descriptive statistics of variables.
-```{r}
+```{r,eval = FALSE}
 ##character variables:UniqueCarrier, FlightNum, TailNum, Origin, Dest, Fog.x, Rain.x, Snow.x, Hail.x, Thunder.x, Tornado.x,
                     #Fog.y, Rain.y, Snow.y, Hail.y, Thunder.y, Tornado.y,season.
 ##numeric variables:Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEMP.x, DEWP.x, SLP.x, VISIB.x,
@@ -102,7 +104,7 @@ select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEM
 ```
 
 Linear regression based on descriptive result
-```{r}
+```{r, eval = FALSE}
 dat$UniqueCarrier = as.factor(dat$UniqueCarrier)
 dat$Origin = as.factor(dat$Origin)
 dat$Dest = as.factor(dat$Dest)
@@ -130,26 +132,88 @@ lr_result = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek +
 ```
 
 bigmemory package (simplified to all number type columns, no need to use ff)  
+troubles with loading 9 GB file on a intel i7-6600U, 2.40 GHz, with 8GB memory
+had to restort to cluster commputing
 
+(even bigmemory package would crash)
+
+data was loaded in a variety of manners, 
+for the parts we could break down by year, either
+read.table or read.csv were used.
+
+
+```{r,eval = FALSE}
+#fpath <- file.path(path,"flight_weather_cleaned.csv")
+#tic("fread 6gb data import")
+#flight_data <- data.table::fread(fpath)
+#toc()
+```
+for the cleaned data, fread 6gb data import: 180.45 sec elapsed, approximately 
+3 minutes to import the data.
+
+32 million observations
+
+```{r, eval = FALSE}
+
+> #fpath <- file.path(path,"flight_weather_cleaned.csv")
+> #tic("fread 6gb data import")
+> #flight_data <- data.table::fread(fpath)
+> #toc()
+> 
+> tic( .... [TRUNCATED] 
+
+> x_test <- read.csv("D:/bios625data/flight_weather_cleaned.csv")
+
+> toc()
+#test for read.csv: 2654.62 sec elapsed
+```
+each data table is around 1 gigabyte in size
 
 ### Analytics
 
 biganalytics package
-lme4
+lme4 - Error: cannot allocate vector of size 256.0 Mb lol....
 
-Use a linear regression on Delay ~ Weather Age Year
-Linear miexed model on Delay ~ Weather Age + random Year
+(I added results based on the output you gave, try to expand a bit)
 
 ### Visualization
+
+(add what stuff you did here ralph)
 tidyverse family
 
 
 ## Results  
 
-adljaf
-(include figures and whatnot)
+put linear regression results here
+
+put lmm results here (if we get them)
+
+put weather results here
+
+
+![Weather Heatmap](heatmap1.png)\newline
+
+
+analysis of this figure goes here
+
+
+![](heatmap2.png)\newline
+
+
+analysis of this figure goes here 
+
 
 
 ## Conclusion and Further Work
 
-Pre- 9/11 era and comparison
+Flight delays may be indicated by the following significant factors: 
+
+Our work was comprehensive, but not exhaustive, with the following topics of interest for future investigation
+* Pre- 9/11 era and comparison
+  +
+* Full time dataset is huge, would require different forms of data storage
+  + having computation troubles as seen above, may need different forms
+  + not limited to cluster computng
+* Investigation of different models 
+* Dealing with missing data on a large scale:
+* Cross-validation
