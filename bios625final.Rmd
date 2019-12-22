@@ -317,6 +317,7 @@ dat = select(dat,-c(key2, key, DepTime, `STN---.x`, YEARMODA.x, `STN---.y`, YEAR
 dat = mutate(dat, season = NA)
 dat[which(dat$Month==1|dat$Month==2|dat$Month==3),]$season="winter"
 dat[which(dat$Month==4|dat$Month==5|dat$Month==6),]$season="spring"
+
 ```
 
 ## Data Importing 
@@ -357,7 +358,7 @@ select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEM
 
 ##obtain frequency tables for categorical covaraites (NOT ALL CATEGORIES INCLUDED)
 select(dat, UniqueCarrier) %>% table()
-select(dat, FlightNum) %>% table() 
+select(dat, Dest) %>% table() 
 
 ##obtain correlation coefficients of numeric covariates using complete data
 select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEMP.x, DEWP.x, SLP.x, VISIB.x, WDSP.x, MXSPD.x, MAX.x, MIN.x, PRCP.x, SNDP.x, TEMP.y, DEWP.y, SLP.y, VISIB.y, WDSP.y, MXSPD.y, MAX.y, MIN.y, PRCP.y, SNDP.y)) %>% cor(,use = "complete.obs")
@@ -415,12 +416,14 @@ We additionally performed diagnoses for our model for issues with multicolineari
 
 ```{r, eval = FALSE, echo = FALSE}
 ##create k folds to do cross validation
-flds <- createFolds(dat, k = 150, list = TRUE, returnTrain = FALSE)
+set.seed(1234)
+dat1 = dat[complete.cases(dat$DepDelay),]
+flds = createFolds(dat1$DepDelay, k = 10, list = TRUE, returnTrain = FALSE)
 n=length(flds)
 ##functions for obtain fitted values based of estimated coefficients
 ##producing dummy variables
-factorize=function(name,data=dat){
-  len = nrow(dat)
+factorize=function(name,data=dat1){
+  len = nrow(data)
   q = levels(name)
   q = sort(q)
   group_num = length(q)
@@ -433,48 +436,51 @@ factorize=function(name,data=dat){
   return(x_matrix)
 }
 ###PRESS
+##set default value
 sum_rresidual=0
 SSY=0
-Ybar=mean(dat$DepDelay)
+Ybar=mean(dat1$DepDelay)
 n1=0
-b = cbind(rep(1,nrow(dat)),factorize(dat$Year), dat$Month, dat$DayofMonth, factorize(dat$DayOfWeek), dat$Distance, dat$TaxiIn, 
-          dat$TaxiOut, dat$TEMP.x,dat$DEWP.x, dat$SLP.x, dat$VISIB.x, dat$WDSP.x, dat$MXSPD.x, dat$PRCP.x, dat$SNDP.x, dat$TEMP.y, 
-          dat$DEWP.y,dat$SLP.y, dat$VISIB.y, dat$WDSP.y, dat$MXSPD.y, dat$PRCP.y, dat$SNDP.y, factorize(dat$UniqueCarrier), 
-          factorize(dat$Origin),factorize(dat$Dest),factorize(dat$Fog.x), factorize(dat$Rain.x), factorize(dat$Snow.x), 
-          factorize(dat$Hail.x),factorize(dat$Thunder.x), factorize(dat$Tornado.x), factorize(dat$Fog.y), factorize(dat$Rain.y), 
-          factorize(dat$Snow.y),factorize(dat$Hail.y), factorize(dat$Thunder.y), factorize(dat$Tornado.y),factorize(dat$season))
-
+##form design matrix for the model
+b = cbind(rep(1,nrow(dat1)),factorize(dat1$Year), dat1$Month, dat1$DayofMonth, factorize(dat1$DayOfWeek), dat1$Distance, dat1$TaxiIn, 
+          dat1$TaxiOut, dat1$TEMP.x,dat1$DEWP.x, dat1$SLP.x, dat1$VISIB.x, dat1$WDSP.x, dat1$MXSPD.x, dat1$PRCP.x, dat1$SNDP.x, dat1$TEMP.y, 
+          dat1$DEWP.y,dat1$SLP.y, dat1$VISIB.y, dat1$WDSP.y, dat1$MXSPD.y, dat1$PRCP.y, dat1$SNDP.y, factorize(dat1$UniqueCarrier), 
+          factorize(dat1$Origin),factorize(dat1$Dest),factorize(dat1$Fog.x), factorize(dat1$Rain.x), factorize(dat1$Snow.x), 
+          factorize(dat1$Hail.x),factorize(dat1$Thunder.x), factorize(dat1$Tornado.x), factorize(dat1$Fog.y), factorize(dat1$Rain.y), 
+          factorize(dat1$Snow.y),factorize(dat1$Hail.y), factorize(dat1$Thunder.y), factorize(dat1$Tornado.y),factorize(dat1$season))
+##fit model with training data and estimate PREE for each fold
 for (i in 1:n){
   a = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TaxiIn + TaxiOut + TEMP.x +
                     DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + TEMP.y + DEWP.y +
                     SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest +
                     Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + Fog.y + Rain.y + Snow.y +
-                    Hail.y + Thunder.y + Tornado.y + season, data = dat[-flds[[i]],] )
+                    Hail.y + Thunder.y + Tornado.y + season, data = dat1[-flds[[i]],] )
   x=b[flds[[i]],]
   c=x%*%summary(a)[[2]][,1]
-  c=dat[flds[[i]],]$DepDelay-c
-  SSY=SSY+sum((dat[flds[[i]],]$DepDelay-Ybar)^2)
+  c=dat1[flds[[i]],]$DepDelay-c
+  SSY=SSY+sum((dat1[flds[[i]],]$DepDelay-Ybar)^2)
   n1=n1+length(c)
   sum_rresidual=sum_rresidual+sum(c^2)
 }
+##calculate R_PRESS
 R_PRESS=1-sum_rresidual/SSY
 R_PRESS
 
 ####PRESS for DepDelay
 sum_rresidual=0
 SSY=0
-Ybar=mean(dat$DepDelay)
+Ybar=mean(dat1$DepDelay)
 n1=0
-b=cbind(rep(1,nrow(dat)),factorize(dat$Year), dat$Month, dat$DayofMonth, factorize(dat$DayOfWeek), dat$Distance, dat$TEMP.x,
-        dat$DEWP.x, dat$SLP.x, dat$VISIB.x, dat$WDSP.x, dat$MXSPD.x, dat$PRCP.x, dat$SNDP.x, factorize(dat$UniqueCarrier),
-        factorize(dat$Origin),factorize(dat$Dest),factorize(dat$Fog.x), factorize(dat$Rain.x), factorize(dat$Snow.x), 
-        factorize(dat$Hail.x),factorize(dat$Thunder.x), factorize(dat$Tornado.x), factorize(dat$season))
+b=cbind(rep(1,nrow(dat1)),factorize(dat1$Year), dat1$Month, dat1$DayofMonth, factorize(dat1$DayOfWeek), dat1$Distance, dat1$TEMP.x,
+        dat1$DEWP.x, dat1$SLP.x, dat1$VISIB.x, dat1$WDSP.x, dat1$MXSPD.x, dat1$PRCP.x, dat1$SNDP.x, factorize(dat1$UniqueCarrier),
+        factorize(dat1$Origin),factorize(dat1$Dest),factorize(dat1$Fog.x), factorize(dat1$Rain.x), factorize(dat1$Snow.x), 
+        factorize(dat1$Hail.x),factorize(dat1$Thunder.x), factorize(dat1$Tornado.x), factorize(dat1$season))
 for (i in 1:n){
-a = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.x + DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + UniqueCarrier + Origin + Dest + Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + season, data = dat[-flds[[i]],] )
+a = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.x + DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + UniqueCarrier + Origin + Dest + Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + season, data = dat1[-flds[[i]],] )
 x=b[flds[[i]],]
 c=x%*%summary(a)[[2]][,1]
-c=dat[flds[[i]],]$DepDelay-c
-SSY=SSY+sum((dat[flds[[i]],]$DepDelay-Ybar)^2)
+c=dat1[flds[[i]],]$DepDelay-c
+SSY=SSY+sum((dat1[flds[[i]],]$DepDelay-Ybar)^2)
 n1=n1+length(c)
 sum_rresidual=sum_rresidual+sum(c^2)
 }
@@ -482,22 +488,26 @@ R_PRESS=1-sum_rresidual/SSY
 R_PRESS
 
 ###PRESS for ArrDelay
+set.seed(1234)
+dat1 = dat[complete.cases(dat$ArrDelay),]
+flds = createFolds(dat1$ArrDelay, k = 10, list = TRUE, returnTrain = FALSE)
+n=length(flds)
 sum_rresidual=0
 n1=0
-Ybar=mean(dat$ArrDelay)
+Ybar=mean(dat1$ArrDelay)
 SSY=0
-b=cbind(rep(1,nrow(dat)),factorize(dat$Year), dat$Month, dat$DayofMonth, factorize(dat$DayOfWeek), dat$Distance, dat$TEMP.y, dat$DEWP.y,
-        dat$SLP.y, dat$VISIB.y, dat$WDSP.y, dat$MXSPD.y, dat$PRCP.y, dat$SNDP.y, factorize(dat$UniqueCarrier), factorize(dat$Origin),
-        factorize(dat$Dest), factorize(dat$Fog.y), factorize(dat$Rain.y), factorize(dat$Snow.y),
-        factorize(dat$Hail.y), factorize(dat$Thunder.y), factorize(dat$Tornado.y),factorize(dat$season))
+b=cbind(rep(1,nrow(dat1)),factorize(dat1$Year), dat1$Month, dat1$DayofMonth, factorize(dat1$DayOfWeek), dat1$Distance, dat1$TEMP.y, dat1$DEWP.y,
+        dat1$SLP.y, dat1$VISIB.y, dat1$WDSP.y, dat1$MXSPD.y, dat1$PRCP.y, dat1$SNDP.y, factorize(dat1$UniqueCarrier), factorize(dat1$Origin),
+        factorize(dat1$Dest), factorize(dat1$Fog.y), factorize(dat1$Rain.y), factorize(dat1$Snow.y),
+        factorize(dat1$Hail.y), factorize(dat1$Thunder.y), factorize(dat1$Tornado.y),factorize(dat1$season))
 
 
 for (i in 1:n){
-a = biglm.big.matrix (ArrDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.y + DEWP.y + SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest + Fog.y + Rain.y + Snow.y + Hail.y + Thunder.y + Tornado.y + season, data = dat[-flds[[i]],] )
+a = biglm.big.matrix (ArrDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.y + DEWP.y + SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest + Fog.y + Rain.y + Snow.y + Hail.y + Thunder.y + Tornado.y + season, data = dat1[-flds[[i]],] )
 x=b[flds[[i]],]
 c=x%*%summary(a)[[2]][,1]
-c=dat[flds[[i]],]$ArrDelay-c
-SSY=SSY+sum((dat[flds[[i]],]$ArrDelay-Ybar)^2)
+c=dat1[flds[[i]],]$ArrDelay-c
+SSY=SSY+sum((dat1[flds[[i]],]$ArrDelay-Ybar)^2)
 n1=n1+length(c)
 sum_rresidual=sum_rresidual+sum(c^2)
 }
