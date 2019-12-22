@@ -2,7 +2,7 @@
 title: "Biostat 625 Final Project - Post 9/11 Flight Delay"
 subtitle: https://github.com/chelleonis/flight_delay
 author: "Ralph Jiang, Xuelin Gu, Allen Li"
-date: "December 18, 2019"
+date: \today
 output: pdf_document
 ---
 
@@ -23,6 +23,7 @@ library(plotly)
 library(chron)
 library(lattice)
 library(grid)
+library(knitr)
 ```
 
 ## Introduction
@@ -299,9 +300,8 @@ All in all, our dataset contains 72 variables, which we then trimmed in the subs
 5. Variables with highly missing data  
 
 Third, we add a covariate named "Season" (i.e. Fall, Spring) based on the "Month" value.  
-
-Snippets of our data cleaning can be shown below:  
-```{r, eval = FALSE}
+Snippets of our data cleaning can be found in the Rmarkdown file. 
+```{r, eval = FALSE, echo = FALSE}
 list_file = data.table::fread("out.csv")
 ##control possible confounders 
 dat = filter(list_file, Cancelled==0&Diverted==0)
@@ -313,11 +313,11 @@ dat = select(dat,-c(key2, key, DepTime, `STN---.x`, YEARMODA.x, `STN---.y`, YEAR
                     CRSDepTime, ArrTime, CRSArrTime, ActualElapsedTime, CRSElapsedTime, 
                     Cancelled, CancellationCode, Diverted, CarrierDelay, WeatherDelay, 
                     NASDelay, SecurityDelay, LateAircraftDelay, STP.x, STP.y, GUST.x, GUST.y))
-#create season covariate
-
+#create season covariates (not all included)
 dat = mutate(dat, season = NA)
 dat[which(dat$Month==1|dat$Month==2|dat$Month==3),]$season="winter"
 dat[which(dat$Month==4|dat$Month==5|dat$Month==6),]$season="spring"
+
 ```
 
 ## Data Importing 
@@ -347,9 +347,9 @@ The bigmemory package had troubles with loading a 9 GB file on a intel i7-6600U,
 
 ### Descriptive Statistics
 
-To preview our data, we were interested in obtaining descriptive statistics for each categories. We investigated variables such as the mean, variance, frequency, and correlation. 
+To preview our data, we were interested in obtaining descriptive statistics for each categories. We investigated variables such as the mean, variance, frequency, and correlation, the code of which can be found in the Rmarkdown file.  
 
-```{r, eval = FALSE}
+```{r, eval = FALSE, echo = FALSE}
 ##
 #Descriptive Statistics of Variables: (NOT ALL CODE INCLUDED)
 select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEMP.x, DEWP.x, SLP.x, VISIB.x,
@@ -358,39 +358,27 @@ select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEM
 
 ##obtain frequency tables for categorical covaraites (NOT ALL CATEGORIES INCLUDED)
 select(dat, UniqueCarrier) %>% table()
-select(dat, FlightNum) %>% table() 
+select(dat, Dest) %>% table() 
 
 ##obtain correlation coefficients of numeric covariates using complete data
 select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEMP.x, DEWP.x, SLP.x, VISIB.x, WDSP.x, MXSPD.x, MAX.x, MIN.x, PRCP.x, SNDP.x, TEMP.y, DEWP.y, SLP.y, VISIB.y, WDSP.y, MXSPD.y, MAX.y, MIN.y, PRCP.y, SNDP.y)) %>% cor(,use = "complete.obs")
 ```
 
-Results of correlation, not many factors highly correlated w/ each other.
-
-=======
 From our results, most varirables had low correlation with each other. Some factors such as raw temperature and maximum temperature were highly correlated, but as a result of using the same information (reword...). The only other noticably highly correlated pair was temperature and dew point, which we deemed to be not a large issue. 
 
 ### Linear regression
 
-Linear Regresion was performed with the biganalytics package, where we analyzed delays for departures and arrivals in their own models. The code for arrival delays is included below, with departures looking similar, but with weather variables replace with .y instead of .x(?).
-
-_CHANGE THIS CODE CHUNK TO REFLECT THE SEPARATE_
+Linear Regresion was performed with the biganalytics package, where we analyzed delays for departures and arrivals in their own models. The code for arrival delays is included below.  
 
 ```{r, eval = FALSE}
 #certain variables were chosen to be categorical via as.factor()
-lr_result = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TaxiIn + TaxiOut + TEMP.x +
-                                DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + TEMP.y + DEWP.y +
-                                SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest +
-                                Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + Fog.y + Rain.y + Snow.y +
-                                Hail.y + Thunder.y + Tornado.y + season, data = dat )
-
-Dep_result = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.x + DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + UniqueCarrier + Origin + Dest + Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + season, data = dat )
+#Departure Delays was calculated similarly, but with weather variables coded as .x (the starting destination) instead of .y
 
 Arr_result = biglm.big.matrix (ArrDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.y + DEWP.y + SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest + Fog.y + Rain.y + Snow.y + Hail.y + Thunder.y + Tornado.y + season, data = dat )
 
-
 ```
 
-Full results of the output can be found in the xlsx file "LM result for all covariates".
+Full results of the output can be found in the xlsx file "LM result for all covariates".  
 
 
 ```{r,eval = FALSE, echo = FALSE}
@@ -424,14 +412,18 @@ VIF(Arr_result)
 #######
 ```
 
-```{r}
+We additionally performed diagnoses for our model for issues with multicolinearity and overfitting (cross-validation). The method can be found in the Rmarkdown file or the file "residual_diagnostics.R". Our GVIF and PRESS results can be found in the file "lm VIF results.txt"
+
+```{r, eval = FALSE, echo = FALSE}
 ##create k folds to do cross validation
-flds <- createFolds(dat, k = 150, list = TRUE, returnTrain = FALSE)
+set.seed(1234)
+dat1 = dat[complete.cases(dat$DepDelay),]
+flds = createFolds(dat1$DepDelay, k = 10, list = TRUE, returnTrain = FALSE)
 n=length(flds)
 ##functions for obtain fitted values based of estimated coefficients
 ##producing dummy variables
-factorize=function(name,data=dat){
-  len = nrow(dat)
+factorize=function(name,data=dat1){
+  len = nrow(data)
   q = levels(name)
   q = sort(q)
   group_num = length(q)
@@ -444,48 +436,51 @@ factorize=function(name,data=dat){
   return(x_matrix)
 }
 ###PRESS
+##set default value
 sum_rresidual=0
 SSY=0
-Ybar=mean(dat$DepDelay)
+Ybar=mean(dat1$DepDelay)
 n1=0
-b = cbind(rep(1,nrow(dat)),factorize(dat$Year), dat$Month, dat$DayofMonth, factorize(dat$DayOfWeek), dat$Distance, dat$TaxiIn, 
-          dat$TaxiOut, dat$TEMP.x,dat$DEWP.x, dat$SLP.x, dat$VISIB.x, dat$WDSP.x, dat$MXSPD.x, dat$PRCP.x, dat$SNDP.x, dat$TEMP.y, 
-          dat$DEWP.y,dat$SLP.y, dat$VISIB.y, dat$WDSP.y, dat$MXSPD.y, dat$PRCP.y, dat$SNDP.y, factorize(dat$UniqueCarrier), 
-          factorize(dat$Origin),factorize(dat$Dest),factorize(dat$Fog.x), factorize(dat$Rain.x), factorize(dat$Snow.x), 
-          factorize(dat$Hail.x),factorize(dat$Thunder.x), factorize(dat$Tornado.x), factorize(dat$Fog.y), factorize(dat$Rain.y), 
-          factorize(dat$Snow.y),factorize(dat$Hail.y), factorize(dat$Thunder.y), factorize(dat$Tornado.y),factorize(dat$season))
-
+##form design matrix for the model
+b = cbind(rep(1,nrow(dat1)),factorize(dat1$Year), dat1$Month, dat1$DayofMonth, factorize(dat1$DayOfWeek), dat1$Distance, dat1$TaxiIn, 
+          dat1$TaxiOut, dat1$TEMP.x,dat1$DEWP.x, dat1$SLP.x, dat1$VISIB.x, dat1$WDSP.x, dat1$MXSPD.x, dat1$PRCP.x, dat1$SNDP.x, dat1$TEMP.y, 
+          dat1$DEWP.y,dat1$SLP.y, dat1$VISIB.y, dat1$WDSP.y, dat1$MXSPD.y, dat1$PRCP.y, dat1$SNDP.y, factorize(dat1$UniqueCarrier), 
+          factorize(dat1$Origin),factorize(dat1$Dest),factorize(dat1$Fog.x), factorize(dat1$Rain.x), factorize(dat1$Snow.x), 
+          factorize(dat1$Hail.x),factorize(dat1$Thunder.x), factorize(dat1$Tornado.x), factorize(dat1$Fog.y), factorize(dat1$Rain.y), 
+          factorize(dat1$Snow.y),factorize(dat1$Hail.y), factorize(dat1$Thunder.y), factorize(dat1$Tornado.y),factorize(dat1$season))
+##fit model with training data and estimate PREE for each fold
 for (i in 1:n){
   a = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TaxiIn + TaxiOut + TEMP.x +
                     DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + TEMP.y + DEWP.y +
                     SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest +
                     Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + Fog.y + Rain.y + Snow.y +
-                    Hail.y + Thunder.y + Tornado.y + season, data = dat[-flds[[i]],] )
+                    Hail.y + Thunder.y + Tornado.y + season, data = dat1[-flds[[i]],] )
   x=b[flds[[i]],]
   c=x%*%summary(a)[[2]][,1]
-  c=dat[flds[[i]],]$DepDelay-c
-  SSY=SSY+sum((dat[flds[[i]],]$DepDelay-Ybar)^2)
+  c=dat1[flds[[i]],]$DepDelay-c
+  SSY=SSY+sum((dat1[flds[[i]],]$DepDelay-Ybar)^2)
   n1=n1+length(c)
   sum_rresidual=sum_rresidual+sum(c^2)
 }
+##calculate R_PRESS
 R_PRESS=1-sum_rresidual/SSY
 R_PRESS
 
 ####PRESS for DepDelay
 sum_rresidual=0
 SSY=0
-Ybar=mean(dat$DepDelay)
+Ybar=mean(dat1$DepDelay)
 n1=0
-b=cbind(rep(1,nrow(dat)),factorize(dat$Year), dat$Month, dat$DayofMonth, factorize(dat$DayOfWeek), dat$Distance, dat$TEMP.x,
-        dat$DEWP.x, dat$SLP.x, dat$VISIB.x, dat$WDSP.x, dat$MXSPD.x, dat$PRCP.x, dat$SNDP.x, factorize(dat$UniqueCarrier),
-        factorize(dat$Origin),factorize(dat$Dest),factorize(dat$Fog.x), factorize(dat$Rain.x), factorize(dat$Snow.x), 
-        factorize(dat$Hail.x),factorize(dat$Thunder.x), factorize(dat$Tornado.x), factorize(dat$season))
+b=cbind(rep(1,nrow(dat1)),factorize(dat1$Year), dat1$Month, dat1$DayofMonth, factorize(dat1$DayOfWeek), dat1$Distance, dat1$TEMP.x,
+        dat1$DEWP.x, dat1$SLP.x, dat1$VISIB.x, dat1$WDSP.x, dat1$MXSPD.x, dat1$PRCP.x, dat1$SNDP.x, factorize(dat1$UniqueCarrier),
+        factorize(dat1$Origin),factorize(dat1$Dest),factorize(dat1$Fog.x), factorize(dat1$Rain.x), factorize(dat1$Snow.x), 
+        factorize(dat1$Hail.x),factorize(dat1$Thunder.x), factorize(dat1$Tornado.x), factorize(dat1$season))
 for (i in 1:n){
-a = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.x + DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + UniqueCarrier + Origin + Dest + Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + season, data = dat[-flds[[i]],] )
+a = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.x + DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + UniqueCarrier + Origin + Dest + Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + season, data = dat1[-flds[[i]],] )
 x=b[flds[[i]],]
 c=x%*%summary(a)[[2]][,1]
-c=dat[flds[[i]],]$DepDelay-c
-SSY=SSY+sum((dat[flds[[i]],]$DepDelay-Ybar)^2)
+c=dat1[flds[[i]],]$DepDelay-c
+SSY=SSY+sum((dat1[flds[[i]],]$DepDelay-Ybar)^2)
 n1=n1+length(c)
 sum_rresidual=sum_rresidual+sum(c^2)
 }
@@ -493,22 +488,26 @@ R_PRESS=1-sum_rresidual/SSY
 R_PRESS
 
 ###PRESS for ArrDelay
+set.seed(1234)
+dat1 = dat[complete.cases(dat$ArrDelay),]
+flds = createFolds(dat1$ArrDelay, k = 10, list = TRUE, returnTrain = FALSE)
+n=length(flds)
 sum_rresidual=0
 n1=0
-Ybar=mean(dat$ArrDelay)
+Ybar=mean(dat1$ArrDelay)
 SSY=0
-b=cbind(rep(1,nrow(dat)),factorize(dat$Year), dat$Month, dat$DayofMonth, factorize(dat$DayOfWeek), dat$Distance, dat$TEMP.y, dat$DEWP.y,
-        dat$SLP.y, dat$VISIB.y, dat$WDSP.y, dat$MXSPD.y, dat$PRCP.y, dat$SNDP.y, factorize(dat$UniqueCarrier), factorize(dat$Origin),
-        factorize(dat$Dest), factorize(dat$Fog.y), factorize(dat$Rain.y), factorize(dat$Snow.y),
-        factorize(dat$Hail.y), factorize(dat$Thunder.y), factorize(dat$Tornado.y),factorize(dat$season))
+b=cbind(rep(1,nrow(dat1)),factorize(dat1$Year), dat1$Month, dat1$DayofMonth, factorize(dat1$DayOfWeek), dat1$Distance, dat1$TEMP.y, dat1$DEWP.y,
+        dat1$SLP.y, dat1$VISIB.y, dat1$WDSP.y, dat1$MXSPD.y, dat1$PRCP.y, dat1$SNDP.y, factorize(dat1$UniqueCarrier), factorize(dat1$Origin),
+        factorize(dat1$Dest), factorize(dat1$Fog.y), factorize(dat1$Rain.y), factorize(dat1$Snow.y),
+        factorize(dat1$Hail.y), factorize(dat1$Thunder.y), factorize(dat1$Tornado.y),factorize(dat1$season))
 
 
 for (i in 1:n){
-a = biglm.big.matrix (ArrDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.y + DEWP.y + SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest + Fog.y + Rain.y + Snow.y + Hail.y + Thunder.y + Tornado.y + season, data = dat[-flds[[i]],] )
+a = biglm.big.matrix (ArrDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.y + DEWP.y + SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest + Fog.y + Rain.y + Snow.y + Hail.y + Thunder.y + Tornado.y + season, data = dat1[-flds[[i]],] )
 x=b[flds[[i]],]
 c=x%*%summary(a)[[2]][,1]
-c=dat[flds[[i]],]$ArrDelay-c
-SSY=SSY+sum((dat[flds[[i]],]$ArrDelay-Ybar)^2)
+c=dat1[flds[[i]],]$ArrDelay-c
+SSY=SSY+sum((dat1[flds[[i]],]$ArrDelay-Ybar)^2)
 n1=n1+length(c)
 sum_rresidual=sum_rresidual+sum(c^2)
 }
@@ -517,27 +516,26 @@ R_PRESS
 
 ```
 
-We additionally diagnosed our model for issues with multicolinearity and found 
-
-_no issues or some issues with variables_ whatever result we had...
+From our diagnosis, we are interested in VIF values greater than 10 (the typical cutoff). After scaling the values to account for degrees of freedom in categories, we found that none of the covariates had an overwhelmingly large variance inflation factor. Thus, for our linear model we are not concerned with issues of multicolinearity. Our PRESS statistic, 
 
 ### Linear Mixed Models
 
 We encountered a memory issue with running the lme4 package on our imported data: 
 > "Error: cannot allocate vector of size 256.0 Mb" on Rstudio
 
-```{r}
-library(car)
-flight_model1 <- lmer(DepDelay ~ Year + Fog.y + Rain.y + Snow.y + Hail.y + Thunder.y +
-                       TEMP.y + (1 | Year), dat)
-vif(flight_model1)
+We ran the analysis on the biostatistics computing cluster for both arrival and departure models on a select few variables we had interest in.
 
+```{r, eval = FALSE}
+#Departure Delay is calculated similarly
+library(car)
 
 flight_model2 <- lmer(ArrDelay ~ Year + Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x +
                        TEMP.x + (1 | Year), dat)
 vif(flight_model2)
+#LMM model runtime: 671.962 sec elapsed
 ```
-We ran the analysis on the biostatistics computing cluster.
+
+Our models took approximately 10 minutes to run on the biostatistics cluster.  
 
 ## Results  
 
@@ -545,57 +543,73 @@ We ran the analysis on the biostatistics computing cluster.
 
 Note: Not all outputs had a p-value attached to it.
 
-Arrival Delays:  
+Time Trends:  
 
-Yearly Trends:
+Year (Ref 2001) | Estimate  | Standard Error | Day of Week (Ref Sunday) | Estimate | Standard Error
+---------- | ------- | ------- | --------- | --------- | --------- 
+2002 | -2.6618 | 0.0274 | Monday | -1.9609  | 0.0232
+2003 | -2.7028 | 0.027 | Tuesday | -1.0263 | 0.0232
+2004 | 0.06525 | 0.0262 | Wednsday | 1.3326 | 0.0231
+2005 | 1.9198  | 0.0269 | Thursday | 1.9471 | 0.0231
+2006 | 3.6907  | 0.0273 | Friday | -4.3095 | 0.0241
+2007 | 5.3389  | 0.0272 | Saturday | -0.3095 | 0.0235
+2008 | 3.1277  | 0.0276 | | |
 
-Year (Ref 2001) | Estimate  | Standard Error
--------- | ------- | -------
-2002 | -2.6618 | 0.0274
-2003 | -2.7028 | 0.027
-2004 | 0.06525 | 0.0262
-2005 | 1.9198  | 0.0269
-2006 | 3.6907  | 0.0273 
-2007 | 5.3389  | 0.0272
-2008 | 3.1277  | 0.0276
+Over the years, it seems as if the delays are more prominent than in previous years. Interestingly enough, the amount of delays is highest at the middle of the week, compared to the expectation of the weekend flight congestion.
 
-Monthly Trends:
+Weather Variables: 
 
+Variable | Estimate | Standard Error 
+-------- | -------- | ------- | 
+Temperature | -0.0868 | 0.0012 
+Fog | -0.5347 | 0.0211
+Rain |3.057 | 0.0177
+Snow | 3.5711 | 0.0339
+Hail | 2.3719 | 0.1469
+Thunder | 5.9924 | 0.026  
 
+For weather related delays in departures, it seems as if non-clear weather conditions effect the arrival of the planes as expected.  
 
-
-Variable | Estimate | Standard Error | p-value 
--------- | -------- | ------- | ---------
-Temperature | -0.0868 | 0.0012 | N/A
- |  | |
-Month | asdf | 0.9234 |
-Thunder | filler | 0.23423423425 |
-
-sources of significant delays  
-
-Departure delays were largely in part similar to arrival delays, as we suspect that flights that 
+Departure delays were largely in part similar to arrival delays, with differences in the storm (weather) related variables being slightly more pronounced for the arrival delays. We suspect that flights that are delayed on arrival will effect the departure times of the next flight, creating a chain reaction of sorts for delays.  
 
 
-### Linear Mixed Models(?)
+### Linear Mixed Models
 
-_ADD RESULTS IF WE HAVE THEM_
+For our choice of model, we decide to model , with year and intercept as our random effects. The full output is given in "mixed model results and VIFs.txt", but select varirables with high t-values are shown below: 
+
+Variable | Estimate | Standard Error  | t-value
+-------- | -------- | ------- | ------
+Snow | 9.932 | 0.029 | 340.090
+Fog.x1 |3.6959687 | 0.0171 | 215.239
+Rain.x1 | 4.5675803 | 0.0152 | 299.109
+Thunder.x1 | 8.8340962 | 0.0243466 | 362.847
+TEMP.x | 0.0192699 | 0.0004031 | 47.810
+
+The year trend is similar to that of the simple linear regression model, where for our year range, flights on average are more delayed as the years progress. While this trend is not necessarily linear, it indicates to us that 
+
+Additionally, the adverse weather conditions (such as thunder or fog) seem to be a significant factor in causing delays in flights. 
+
+For our random effects, our results for our year variable are quite low, 0.3825, which inidcates to us that our model results don't vary much between the years.  
+
+In general, the model has similar estimates for the year terms for both arrivals and delays. This model however, has much larger effects for weather on arrival delays compared to departure delays. We did not encounter problems with multicolinearity with our model (VIF < 10).
 
 
 ## Conclusion and Further Work
 
-Flight delays may be indicated by the following significant factors: 
+Flight delays can usually be indicated by adverse weather conditions and the timing of the week. While these results are not absolute, customers should double check the weather on the day of the flight to predict delays and plan on flying during the beginning of the week to reduce chances of delays. As our model contains an excessive amount of variables, we may have ran into a problem with overfitting, as inidicated by our cross-validation results. We believe an implementation of model fitting techniques would be helpful for the inference of these models and moving forward with investigation on a larger more recent dataset of the current decade. 
 
-Our work was comprehensive, but not exhaustive, with the following topics of interest for future investigation
-* Pre 9/11 Era comparison
-  + As our analysis contains information on post-9/11, where security measures have been tightened signficantly, we would like to see if effects that are signficant in causing delays in this era are more pronounced before 9/11
+Our work was comprehensive, but not exhaustive, with the following topics of interest for future investigation  
+* Pre 9/11 Era comparison  
+  + As our analysis contains information on post-9/11, where security measures have been tightened signficantly, we would like to see if effects that are  signficant in causing delays in this era are more pronounced before 9/11   
+* Compilation of more recent Data (2009-present)    
 * Full dataset (1987-2008) would be too large for our methods used (greater than 20 GB)
-  + Having computation troubles as seen above, may need different forms
-  + Would require different forms of data storage
-  + Look into using RHadoop
-  + Not limited to cluster computing
-* Investigation of different models 
-* Dealing with missing data on a large scale
-* Cross-validation
+  + Having computation troubles as seen above, may need different forms  
+  + Would require different forms of data storage  
+  + Look into using RHadoop   
+  + Not limited to cluster computing  
+* Investigation of different models   
+* Dealing with missing data on a large scale  
+* Expanded Linear Mixed Model Analysis  
 
 ## Special Acknowledgements
 
