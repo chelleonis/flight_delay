@@ -361,7 +361,7 @@ select(dat, UniqueCarrier) %>% table()
 select(dat, Dest) %>% table() 
 
 ##obtain correlation coefficients of numeric covariates using complete data
-select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEMP.x, DEWP.x, SLP.x, VISIB.x, WDSP.x, MXSPD.x, MAX.x, MIN.x, PRCP.x, SNDP.x, TEMP.y, DEWP.y, SLP.y, VISIB.y, WDSP.y, MXSPD.y, MAX.y, MIN.y, PRCP.y, SNDP.y)) %>% cor(,use = "complete.obs")
+select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEMP.x, DEWP.x, SLP.x, VISIB.x, WDSP.x, MXSPD.x, MAX.x, MIN.x, PRCP.x, SNDP.x, TEMP.y, DEWP.y, SLP.y, VISIB.y, WDSP.y, MXSPD.y, MAX.y, MIN.y, PRCP.y, SNDP.y)) %>% cor(, use = "complete.obs")
 ```
 
 From our results, most varirables had low correlation with each other. Some factors such as raw temperature and maximum temperature were highly correlated, but as a result of using the same information (reword...). The only other noticably highly correlated pair was temperature and dew point, which we deemed to be not a large issue. 
@@ -374,7 +374,9 @@ Linear Regresion was performed with the biganalytics package, where we analyzed 
 #certain variables were chosen to be categorical via as.factor()
 #Departure Delays was calculated similarly, but with weather variables coded as .x (the starting destination) instead of .y
 
-Arr_result = biglm.big.matrix (ArrDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.y + DEWP.y + SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest + Fog.y + Rain.y + Snow.y + Hail.y + Thunder.y + Tornado.y + season, data = dat )
+Arr_result = biglm.big.matrix (ArrDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.y + DEWP.y + SLP.y + VISIB.y + 
+                                 WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest + Fog.y + Rain.y + Snow.y + 
+                                 Hail.y + Thunder.y + Tornado.y + season, data = dat )
 
 ```
 
@@ -384,139 +386,86 @@ Full results of the output can be found in the xlsx file "LM result for all cova
 ```{r,eval = FALSE, echo = FALSE}
 #####obtain GVIF for multilinearity diagnosis
 VIF = function(lr_result){
+  ##obtain linear regression result list
   v = vcov(lr_result)
-  assign <- lr_result$assign
+  assign = lr_result$assign
   if (names(coefficients(lr_result)[1]) == "(Intercept)") {
-    v <- v[-1, -1]
-    assign <- assign[-1]
+    v = v[-1, -1]
+    assign = assign[-1]
   }
-  terms <- labels(terms(lr_result))
-  n.terms <- length(terms)
-  R <- cov2cor(v)
-  detR <- det(R)
-  result <- matrix(0, n.terms, 3)
-  rownames(result) <- terms
-  colnames(result) <- c("GVIF", "Df", "GVIF^(1/(2*Df))")
+  terms = labels(terms(lr_result))
+  n.terms = length(terms)
+  ##obtain covariance matrix
+  R = cov2cor(v)
+  detR = det(R)
+  result = matrix(0, n.terms, 3)
+  rownames(result) = terms
+  colnames(result) = c("GVIF", "Df", "GVIF^(1/(2*Df))")
+  ##calculate VIF
   for (term in 1:n.terms) {
-    subs <- which(assign == term)
-    result[term, 1] <- det(as.matrix(R[subs, subs])) *
-      det(as.matrix(R[-subs, -subs])) / detR
-    result[term, 2] <- length(subs)
+    subs = which(assign == term)
+    result[term, 1] = det(as.matrix(R[subs, subs])) * det(as.matrix(R[-subs, -subs])) / detR
+    result[term, 2] = length(subs)
   }
-  if (all(result[, 2] == 1)) result <- result[, 1] else result[, 3] <- result[, 1]^(1/(2 * result[, 2]))
+  if (all(result[, 2] == 1)) result = result[, 1] else result[, 3] = result[, 1]^(1/(2 * result[, 2]))
 }
-
-VIF(lr_result)
 VIF(Dep_result)
 VIF(Arr_result)
 #######
 ```
 
-We additionally performed diagnoses for our model for issues with multicolinearity and overfitting (cross-validation). The method can be found in the Rmarkdown file or the file "residual_diagnostics.R". Our GVIF and PRESS results can be found in the file "lm VIF results.txt"
+We additionally performed diagnoses for our model for issues with multicolinearity and overfitting (cross-validation) and there is no existing package for class obtained from biglm.big.matrix(). The method can be found in the Rmarkdown file or the file "residual_diagnostics.R". Our GVIF and PRESS results can be found in the file "lm VIF results.txt"
 
 ```{r, eval = FALSE, echo = FALSE}
+####PRESS for ArrDelay
+##PRESS for DepDelay was calculated similarly, but with weather variables coded as .x (the starting destination) instead of .y
 ##create k folds to do cross validation
 set.seed(1234)
-dat1 = dat[complete.cases(dat$DepDelay),]
-flds = createFolds(dat1$DepDelay, k = 10, list = TRUE, returnTrain = FALSE)
+dat1 = dat[complete.cases(dat), ]
+flds = createFolds(dat1$ArrDelay, k = 10, list = TRUE, returnTrain = FALSE)
 n=length(flds)
 ##functions for obtain fitted values based of estimated coefficients
 ##producing dummy variables
-factorize=function(name,data=dat1){
+factorize=function(name, data = dat1){
   len = nrow(data)
   q = levels(name)
   q = sort(q)
   group_num = length(q)
   x_matrix = matrix(0, len, group_num)
   ###produce indicate variable for each group of the categorical variable x
-  for (i in 1:group_num) {
-    x_matrix[,i] = name==q[i]
-  }
-  x_matrix=x_matrix[,-1]
+  for (i in 1:group_num) {x_matrix[, i] = name==q[i]}
+  x_matrix = x_matrix[, -1]
   return(x_matrix)
 }
-###PRESS
 ##set default value
-sum_rresidual=0
-SSY=0
-Ybar=mean(dat1$DepDelay)
-n1=0
+sum_rresidual = 0
+SSY = 0
+Ybar = mean(dat1$ArrDelay)
 ##form design matrix for the model
-b = cbind(rep(1,nrow(dat1)),factorize(dat1$Year), dat1$Month, dat1$DayofMonth, factorize(dat1$DayOfWeek), dat1$Distance, dat1$TaxiIn, 
-          dat1$TaxiOut, dat1$TEMP.x,dat1$DEWP.x, dat1$SLP.x, dat1$VISIB.x, dat1$WDSP.x, dat1$MXSPD.x, dat1$PRCP.x, dat1$SNDP.x, dat1$TEMP.y, 
-          dat1$DEWP.y,dat1$SLP.y, dat1$VISIB.y, dat1$WDSP.y, dat1$MXSPD.y, dat1$PRCP.y, dat1$SNDP.y, factorize(dat1$UniqueCarrier), 
-          factorize(dat1$Origin),factorize(dat1$Dest),factorize(dat1$Fog.x), factorize(dat1$Rain.x), factorize(dat1$Snow.x), 
-          factorize(dat1$Hail.x),factorize(dat1$Thunder.x), factorize(dat1$Tornado.x), factorize(dat1$Fog.y), factorize(dat1$Rain.y), 
-          factorize(dat1$Snow.y),factorize(dat1$Hail.y), factorize(dat1$Thunder.y), factorize(dat1$Tornado.y),factorize(dat1$season))
+b=cbind(rep(1, nrow(dat1)), factorize(dat1$Year), dat1$Month, dat1$DayofMonth, factorize(dat1$DayOfWeek), dat1$Distance, dat1$TEMP.y,
+        dat1$DEWP.y, dat1$SLP.y, dat1$VISIB.y, dat1$WDSP.y, dat1$MXSPD.y, dat1$PRCP.y, dat1$SNDP.y, factorize(dat1$UniqueCarrier),
+        factorize(dat1$Origin),factorize(dat1$Dest),factorize(dat1$Fog.y), factorize(dat1$Rain.y), factorize(dat1$Snow.y), 
+        factorize(dat1$Hail.y),factorize(dat1$Thunder.y), factorize(dat1$Tornado.y), factorize(dat1$season))
 ##fit model with training data and estimate PREE for each fold
 for (i in 1:n){
-  a = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TaxiIn + TaxiOut + TEMP.x +
-                    DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + TEMP.y + DEWP.y +
-                    SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest +
-                    Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + Fog.y + Rain.y + Snow.y +
-                    Hail.y + Thunder.y + Tornado.y + season, data = dat1[-flds[[i]],] )
-  x=b[flds[[i]],]
-  c=x%*%summary(a)[[2]][,1]
-  c=dat1[flds[[i]],]$DepDelay-c
-  SSY=SSY+sum((dat1[flds[[i]],]$DepDelay-Ybar)^2)
-  n1=n1+length(c)
-  sum_rresidual=sum_rresidual+sum(c^2)
+  a = biglm.big.matrix (ArrDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.y + DEWP.y + SLP.y + VISIB.y + WDSP.y + 
+                          MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest + Fog.y + Rain.y + Snow.y + Hail.y + Thunder.y + 
+                          Tornado.y + season, data = dat1[-flds[[i]],] )
+  x = b[flds[[i]],]
+  ##calculate fitted value using coefficients and design matrix
+  c = x%*%summary(a)[[2]][,1]
+  ##Y-Y_hat
+  c = dat1[flds[[i]], ]$ArrDelay - c
+  SSY = SSY + sum((dat1[flds[[i]], ]$ArrDelay - Ybar)^2 )
+  n1 = n1 + length(c)
+  sum_rresidual = sum_rresidual + sum(c^2)
 }
 ##calculate R_PRESS
-R_PRESS=1-sum_rresidual/SSY
+R_PRESS = 1 - sum_rresidual/SSY
 R_PRESS
-
-####PRESS for DepDelay
-sum_rresidual=0
-SSY=0
-Ybar=mean(dat1$DepDelay)
-n1=0
-b=cbind(rep(1,nrow(dat1)),factorize(dat1$Year), dat1$Month, dat1$DayofMonth, factorize(dat1$DayOfWeek), dat1$Distance, dat1$TEMP.x,
-        dat1$DEWP.x, dat1$SLP.x, dat1$VISIB.x, dat1$WDSP.x, dat1$MXSPD.x, dat1$PRCP.x, dat1$SNDP.x, factorize(dat1$UniqueCarrier),
-        factorize(dat1$Origin),factorize(dat1$Dest),factorize(dat1$Fog.x), factorize(dat1$Rain.x), factorize(dat1$Snow.x), 
-        factorize(dat1$Hail.x),factorize(dat1$Thunder.x), factorize(dat1$Tornado.x), factorize(dat1$season))
-for (i in 1:n){
-a = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.x + DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + UniqueCarrier + Origin + Dest + Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + season, data = dat1[-flds[[i]],] )
-x=b[flds[[i]],]
-c=x%*%summary(a)[[2]][,1]
-c=dat1[flds[[i]],]$DepDelay-c
-SSY=SSY+sum((dat1[flds[[i]],]$DepDelay-Ybar)^2)
-n1=n1+length(c)
-sum_rresidual=sum_rresidual+sum(c^2)
-}
-R_PRESS=1-sum_rresidual/SSY
-R_PRESS
-
-###PRESS for ArrDelay
-set.seed(1234)
-dat1 = dat[complete.cases(dat$ArrDelay),]
-flds = createFolds(dat1$ArrDelay, k = 10, list = TRUE, returnTrain = FALSE)
-n=length(flds)
-sum_rresidual=0
-n1=0
-Ybar=mean(dat1$ArrDelay)
-SSY=0
-b=cbind(rep(1,nrow(dat1)),factorize(dat1$Year), dat1$Month, dat1$DayofMonth, factorize(dat1$DayOfWeek), dat1$Distance, dat1$TEMP.y, dat1$DEWP.y,
-        dat1$SLP.y, dat1$VISIB.y, dat1$WDSP.y, dat1$MXSPD.y, dat1$PRCP.y, dat1$SNDP.y, factorize(dat1$UniqueCarrier), factorize(dat1$Origin),
-        factorize(dat1$Dest), factorize(dat1$Fog.y), factorize(dat1$Rain.y), factorize(dat1$Snow.y),
-        factorize(dat1$Hail.y), factorize(dat1$Thunder.y), factorize(dat1$Tornado.y),factorize(dat1$season))
-
-
-for (i in 1:n){
-a = biglm.big.matrix (ArrDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.y + DEWP.y + SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest + Fog.y + Rain.y + Snow.y + Hail.y + Thunder.y + Tornado.y + season, data = dat1[-flds[[i]],] )
-x=b[flds[[i]],]
-c=x%*%summary(a)[[2]][,1]
-c=dat1[flds[[i]],]$ArrDelay-c
-SSY=SSY+sum((dat1[flds[[i]],]$ArrDelay-Ybar)^2)
-n1=n1+length(c)
-sum_rresidual=sum_rresidual+sum(c^2)
-}
-R_PRESS=1-sum_rresidual/SSY
-R_PRESS
-
 ```
 
-From our diagnosis, we are interested in VIF values greater than 10 (the typical cutoff). After scaling the values to account for degrees of freedom in categories, we found that none of the covariates had an overwhelmingly large variance inflation factor. Thus, for our linear model we are not concerned with issues of multicolinearity. Our PRESS statistic, 
+From our diagnosis, we are interested in VIF values greater than 10 (the typical cutoff). After scaling the values to account for degrees of freedom in categories, we found that none of the covariates had an overwhelmingly large variance inflation factor. Thus, for our linear model we are not concerned with issues of multicolinearity.
 
 ### Linear Mixed Models
 
@@ -528,9 +477,7 @@ We ran the analysis on the biostatistics computing cluster for both arrival and 
 ```{r, eval = FALSE}
 #Departure Delay is calculated similarly
 library(car)
-
-flight_model2 <- lmer(ArrDelay ~ Year + Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x +
-                       TEMP.x + (1 | Year), dat)
+flight_model2 <- lmer(ArrDelay ~ Year + Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + TEMP.x + (1 | Year), dat)
 vif(flight_model2)
 #LMM model runtime: 671.962 sec elapsed
 ```
@@ -602,7 +549,7 @@ Our work was comprehensive, but not exhaustive, with the following topics of int
 * Pre 9/11 Era comparison  
   + As our analysis contains information on post-9/11, where security measures have been tightened signficantly, we would like to see if effects that are  signficant in causing delays in this era are more pronounced before 9/11   
 * Compilation of more recent Data (2009-present)    
-* Full dataset (1987-2008) would be too large for our methods used (greater than 20 GB)
+* Full dataset (1987-2008) would be too large for our methods used (greater than 20 GB)  
   + Having computation troubles as seen above, may need different forms  
   + Would require different forms of data storage  
   + Look into using RHadoop   
@@ -613,5 +560,5 @@ Our work was comprehensive, but not exhaustive, with the following topics of int
 
 ## Special Acknowledgements
 
-Special Thanks to Daniel Barker for his help and availibility in teaching us how to use the computing clusters. 
+Special Thanks to Dan Barker for his help and availibility in teaching us how to use the computing clusters. 
 
