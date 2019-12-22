@@ -1,0 +1,7 @@
+Group Member Contributions:
+
+Ralph: Cleaning weather dataset, merging flights and weather data together, calendar heatmap and graphics, linear regression plots
+
+Xuelin:
+
+Allen:
