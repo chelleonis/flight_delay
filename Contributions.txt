@@ -1,7 +1,7 @@
 Group Member Contributions:
 
-Ralph: Cleaning weather dataset, merging flights and weather data together, calendar heatmap and graphics, linear regression plots
+Ralph: Cleaning Weather Dataset, Merging Flights and Weather Data, Calendar Heatmap, Linear Regression Plots
 
-Xuelin:
+Xuelin: Cluster Computing, Descriptive Analysis, Linear Regression, Multilinearity diagnosis, Cross Validation
 
-Allen:
+Allen: Report Compilation, Linear Mixed Models Support, Code Management
