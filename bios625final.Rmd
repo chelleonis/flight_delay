@@ -27,7 +27,7 @@ library(grid)
 
 ## Introduction
 
-Delayed flights are a common occurance in the airline industry, with 25 million flights being delayed (for at least 15 minutes) for 20 years of data. The issue of delayed flights is seemingly unpredictable with so many factors preceding a successful flight. For the customer then, it is of increased importance to be able to anticipate what may cause a delay in their flight. To try to shed some light on the issue, we analyzed a large dataset from the post 9/11 era (2001-2008), given by the Bureau of Transportation Statistics. 
+Delayed flights are a common occurance in the airline industry, with 25 million flights being delayed (greater than 15 minutes) for 20 years of data. The issue of delayed flights is seemingly unpredictable with so many factors preceding a successful flight. For the customer then, it is of increased importance to be able to anticipate what may cause a delay in their flight. To try to shed some light on the issue, we analyzed a large dataset from the post 9/11 era (2001-2008), given by the Bureau of Transportation Statistics. 
 
 
 #### Calendar Heatmap
@@ -68,7 +68,7 @@ calendarHeat(delay_prop$Date[1:1461], delay_prop$delay_prop[1:1461], ncolors=99,
 calendarHeat(delay_prop$Date[1462:2922], delay_prop$delay_prop[1462:2922], ncolors=99, color='g2r', varname = "Flight Delay Proportion (2005-2008)")
 ```
 
-We can see that it is quite common for over 25% of flights to be delayed on any given day. The proportion of flights delayed consistently gets much worse towards the end of December / beginning of January, especially on the days right before Christmas and right after New Year's. Comparing across seasons, it appears that spring and fall are relatively delay-free, whereas in the summer, we can expect to have at least 30% of flights delayed. Unfortunately, these trends have not been getting much better over time, and if anything, have been worsening ever since 2003. Thus, we believe it is of utmost interest to investigate what factors influence the amount of time flights are delayed.
+We can see that it is quite common for over 25% of flights to be delayed on any given day. The proportion of flights delayed consistently gets much worse towards the end of December / beginning of January, especially on the days right before Christmas and right after New Year's. Comparing across seasons, it appears that spring and fall are relatively delay-free, whereas in the summer, we can expect to have at least 30% of flights delayed. Unfortunately, these trends have not improved over time, and if anything, have worsened ever since 2003. Thus, we believe it is of utmost interest to investigate what factors influence the amount of time flights are delayed.
 
 
 ## Methods
@@ -77,7 +77,7 @@ Our dataset contains, at its base, 29 variables and 130 million entries of fligh
 
 ### Data Cleaning and Pre-processing
 
-We believe a major factor influencing flight delays is the weather. The source of our daily weather data is NCDC Cliamte Data Online. We split the dataset into managable chunks (years). The weather datasets included 23 variables such as tempearture, precipitation, and wind speed. We merged the base data to the weather data by using a key consisting of the 3 letter airport code, year, month, and day, concatenated together. The relevant code is in the R Markdown file but not the pdf.
+We believe a major factor influencing flight delays is the weather. The source of our daily weather data is NCDC Cliamte Data Online. We split the dataset into managable chunks (by year). The weather datasets included 23 variables such as tempearture, precipitation, and wind speed. We merged the base data to the weather data by using a key consisting of the 3 letter airport code, year, month, and day, concatenated together. The relevant code is in the R Markdown file but not the pdf.
 
 ```{r, eval = FALSE, echo = FALSE}
 # Code to merge flight data with weather data
@@ -288,10 +288,10 @@ dataFiles = list.files(pattern = "*.csv") %>%
 write.csv(dataFiles,file='out.csv')
 ```
 
-The operation above was performed in the biostatisitics computing cluster using bash scripts, as the operation was too big to perform in R (R would be unable to create a vector of that memory size(??)). 
+The operation above was performed in the biostatisitics computing cluster using bash scripts, as the operation was too big to perform in Rstudio due to it's memory limits.  
 
 
-All in all, our dataset contains 72 varaibles, which we then trimmed. Firstly, we deleted the cancelled and diverted flights that may have different situations with other common delayed flights. Secondly, to make the analysis more efficient, we removed variables meeting the following criteria:   
+All in all, our dataset contains 72 variables, which we then trimmed in the subsequent steps. First, we deleted the cancelled and diverted flights that may have different situations with other common delayed flights. Second, to make the analysis more efficient, we removed variables meeting the following criteria:   
 1. Provides little information on flight delays
 2. Provides information contained in other variables
 3. Not included in this project objectives
@@ -303,64 +303,51 @@ Third, we add a covariate named "Season" (i.e. Fall, Spring) based on the "Month
 Snippets of our data cleaning can be shown below:  
 ```{r, eval = FALSE}
 list_file = data.table::fread("out.csv")
-
+##control possible confounders 
 dat = filter(list_file, Cancelled==0&Diverted==0)
+##exclude nonsense indices
 dat = subset(dat, -c(V1))
 
+##exclude irrelavent covariates
 dat = select(dat,-c(key2, key, DepTime, `STN---.x`, YEARMODA.x, `STN---.y`, YEARMODA.y,    
                     CRSDepTime, ArrTime, CRSArrTime, ActualElapsedTime, CRSElapsedTime, 
                     Cancelled, CancellationCode, Diverted, CarrierDelay, WeatherDelay, 
                     NASDelay, SecurityDelay, LateAircraftDelay, STP.x, STP.y, GUST.x, GUST.y))
 #create season covariate
+
 dat = mutate(dat, season = NA)
 dat[which(dat$Month==1|dat$Month==2|dat$Month==3),]$season="winter"
 dat[which(dat$Month==4|dat$Month==5|dat$Month==6),]$season="spring"
-dat[which(dat$Month==7|dat$Month==8|dat$Month==9),]$season="summer"
-dat[which(dat$Month==10|dat$Month==10|dat$Month==11),]$season="fall"
 ```
 
-### Data Importing 
+## Data Importing 
 
-data was loaded in a variety of manners, 
-for the parts we could break down by year, either
+Data was loaded in a variety of manners. For the parts we could break down by year, either
 read.table or read.csv were used.
 ```{r,eval = FALSE}
-#fpath <- file.path(path,"flight_weather_cleaned.csv")
-#tic("fread 6gb data import")
-#flight_data <- data.table::fread(fpath)
-#toc()
+fpath <- file.path(path,"flight_weather_cleaned.csv")
+tic("fread 6gb data import")
+flight_data <- data.table::fread(fpath)
+toc()
+#fread 6gb data import: 180.45 sec elapsed
 ```
-for the cleaned data, fread 6gb data import: 180.45 sec elapsed, approximately 
-3 minutes to import the data fr 32 million observations.
+For the cleaned data, it takes approximately 3 minutes to import the data for 32 million observations.
 
 ```{r, eval = FALSE}
-
-> #fpath <- file.path(path,"flight_weather_cleaned.csv")
-> #tic("fread 6gb data import")
-> #flight_data <- data.table::fread(fpath)
-> #toc()
-> 
-> tic( .... [TRUNCATED] 
-
-> x_test <- read.csv("D:/bios625data/flight_weather_cleaned.csv")
-
-> toc()
+tic("test for read.csv")
+x_test <- read.csv("D:/bios625data/flight_weather_cleaned.csv")
+toc()
 #test for read.csv: 2654.62 sec elapsed
 ```
-whereas for the read.csv took 40 minutes to import
+Whereas for read.csv, it took 40 minutes to import the data.
 
+The bigmemory package had troubles with loading a 9 GB file on a intel i7-6600U, 2.40 GHz, with 8GB memory, where it would crash Rstudio midway through. The analyses including that package and biganalytics were performed in the biostatistics computing cluster.
 
-the bigmemory package (simplified to all number type columns, no need to use ff)  
-troubles with loading a 9 GB file on a intel i7-6600U, 2.40 GHz, with 8GB memory, where it would crash Rstudio midway through.
+## Analytics
 
-had to resort to cluster commputing for that component
+### Descriptive Statistics
 
-### Analytics
-
-
-#### Descriptive Statistics
-
-Sneak preview of the data?
+To preview our data, we were interested in obtaining descriptive statistics for each categories. We investigated variables such as the mean, variance, frequency, and correlation. 
 
 ```{r, eval = FALSE}
 ##
@@ -371,22 +358,22 @@ select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEM
 
 ##obtain frequency tables for categorical covaraites (NOT ALL CATEGORIES INCLUDED)
 select(dat, UniqueCarrier) %>% table()
-select(dat, FlightNum) %>% table() ## too many categories
-select(dat, TailNum) %>% table() ## too many categories
-select(dat, Origin) %>% table()
-select(dat, Dest) %>% table()
+select(dat, FlightNum) %>% table() 
+
 ##obtain correlation coefficients of numeric covariates using complete data
-select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEMP.x, DEWP.x, SLP.x, VISIB.x,
-              WDSP.x, MXSPD.x, MAX.x, MIN.x, PRCP.x, SNDP.x, TEMP.y, DEWP.y, SLP.y, VISIB.y,
-              WDSP.y, MXSPD.y, MAX.y, MIN.y, PRCP.y, SNDP.y)) %>% cor(,use = "complete.obs")
+select(dat, c(Year, Month, DayofMonth, DayOfWeek, Distance, TaxiIn, TaxiOut, TEMP.x, DEWP.x, SLP.x, VISIB.x, WDSP.x, MXSPD.x, MAX.x, MIN.x, PRCP.x, SNDP.x, TEMP.y, DEWP.y, SLP.y, VISIB.y, WDSP.y, MXSPD.y, MAX.y, MIN.y, PRCP.y, SNDP.y)) %>% cor(,use = "complete.obs")
 ```
 
 Results of correlation, not many factors highly correlated w/ each other.
 
+=======
+From our results, most varirables had low correlation with each other. Some factors such as raw temperature and maximum temperature were highly correlated, but as a result of using the same information (reword...). The only other noticably highly correlated pair was temperature and dew point, which we deemed to be not a large issue. 
 
-#### Linear regression
+### Linear regression
 
-Linear Regresion was performed with the bianalytics package. 
+Linear Regresion was performed with the biganalytics package, where we analyzed delays for departures and arrivals in their own models. The code for arrival delays is included below, with departures looking similar, but with weather variables replace with .y instead of .x(?).
+
+_CHANGE THIS CODE CHUNK TO REFLECT THE SEPARATE_
 
 ```{r, eval = FALSE}
 #certain variables were chosen to be categorical via as.factor()
@@ -395,33 +382,203 @@ lr_result = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek +
                                 SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest +
                                 Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + Fog.y + Rain.y + Snow.y +
                                 Hail.y + Thunder.y + Tornado.y + season, data = dat )
+
+Dep_result = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.x + DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + UniqueCarrier + Origin + Dest + Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + season, data = dat )
+
+Arr_result = biglm.big.matrix (ArrDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.y + DEWP.y + SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest + Fog.y + Rain.y + Snow.y + Hail.y + Thunder.y + Tornado.y + season, data = dat )
+
+
 ```
 
-Write results of regression here, what results are significant and their estimate on delay (i'll look at the xlsx and try to import some of the data into a table) like so:  
+Full results of the output can be found in the xlsx file "LM result for all covariates".
 
-Varaible | Estimate | p-value 
--------- | -------- | -------
-Temperature | 42342 | 0.234234
-Year | adsf | 0.2384
-Month | asdf | 0.9234
-Thunder | filler | 0.23423423425  
 
-#### Linear Mixed Models
+```{r,eval = FALSE, echo = FALSE}
+#####obtain GVIF for multilinearity diagnosis
+VIF = function(lr_result){
+  v = vcov(lr_result)
+  assign <- lr_result$assign
+  if (names(coefficients(lr_result)[1]) == "(Intercept)") {
+    v <- v[-1, -1]
+    assign <- assign[-1]
+  }
+  terms <- labels(terms(lr_result))
+  n.terms <- length(terms)
+  R <- cov2cor(v)
+  detR <- det(R)
+  result <- matrix(0, n.terms, 3)
+  rownames(result) <- terms
+  colnames(result) <- c("GVIF", "Df", "GVIF^(1/(2*Df))")
+  for (term in 1:n.terms) {
+    subs <- which(assign == term)
+    result[term, 1] <- det(as.matrix(R[subs, subs])) *
+      det(as.matrix(R[-subs, -subs])) / detR
+    result[term, 2] <- length(subs)
+  }
+  if (all(result[, 2] == 1)) result <- result[, 1] else result[, 3] <- result[, 1]^(1/(2 * result[, 2]))
+}
 
-lme4 - Error: cannot allocate vector of size 256.0 Mb on Rstudio
-(will expand a bit)
+VIF(lr_result)
+VIF(Dep_result)
+VIF(Arr_result)
+#######
+```
 
-(I added results based on the output you gave, try to expand a bit)
+```{r}
+##create k folds to do cross validation
+flds <- createFolds(dat, k = 150, list = TRUE, returnTrain = FALSE)
+n=length(flds)
+##functions for obtain fitted values based of estimated coefficients
+##producing dummy variables
+factorize=function(name,data=dat){
+  len = nrow(dat)
+  q = levels(name)
+  q = sort(q)
+  group_num = length(q)
+  x_matrix = matrix(0, len, group_num)
+  ###produce indicate variable for each group of the categorical variable x
+  for (i in 1:group_num) {
+    x_matrix[,i] = name==q[i]
+  }
+  x_matrix=x_matrix[,-1]
+  return(x_matrix)
+}
+###PRESS
+sum_rresidual=0
+SSY=0
+Ybar=mean(dat$DepDelay)
+n1=0
+b = cbind(rep(1,nrow(dat)),factorize(dat$Year), dat$Month, dat$DayofMonth, factorize(dat$DayOfWeek), dat$Distance, dat$TaxiIn, 
+          dat$TaxiOut, dat$TEMP.x,dat$DEWP.x, dat$SLP.x, dat$VISIB.x, dat$WDSP.x, dat$MXSPD.x, dat$PRCP.x, dat$SNDP.x, dat$TEMP.y, 
+          dat$DEWP.y,dat$SLP.y, dat$VISIB.y, dat$WDSP.y, dat$MXSPD.y, dat$PRCP.y, dat$SNDP.y, factorize(dat$UniqueCarrier), 
+          factorize(dat$Origin),factorize(dat$Dest),factorize(dat$Fog.x), factorize(dat$Rain.x), factorize(dat$Snow.x), 
+          factorize(dat$Hail.x),factorize(dat$Thunder.x), factorize(dat$Tornado.x), factorize(dat$Fog.y), factorize(dat$Rain.y), 
+          factorize(dat$Snow.y),factorize(dat$Hail.y), factorize(dat$Thunder.y), factorize(dat$Tornado.y),factorize(dat$season))
 
+for (i in 1:n){
+  a = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TaxiIn + TaxiOut + TEMP.x +
+                    DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + TEMP.y + DEWP.y +
+                    SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest +
+                    Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + Fog.y + Rain.y + Snow.y +
+                    Hail.y + Thunder.y + Tornado.y + season, data = dat[-flds[[i]],] )
+  x=b[flds[[i]],]
+  c=x%*%summary(a)[[2]][,1]
+  c=dat[flds[[i]],]$DepDelay-c
+  SSY=SSY+sum((dat[flds[[i]],]$DepDelay-Ybar)^2)
+  n1=n1+length(c)
+  sum_rresidual=sum_rresidual+sum(c^2)
+}
+R_PRESS=1-sum_rresidual/SSY
+R_PRESS
+
+####PRESS for DepDelay
+sum_rresidual=0
+SSY=0
+Ybar=mean(dat$DepDelay)
+n1=0
+b=cbind(rep(1,nrow(dat)),factorize(dat$Year), dat$Month, dat$DayofMonth, factorize(dat$DayOfWeek), dat$Distance, dat$TEMP.x,
+        dat$DEWP.x, dat$SLP.x, dat$VISIB.x, dat$WDSP.x, dat$MXSPD.x, dat$PRCP.x, dat$SNDP.x, factorize(dat$UniqueCarrier),
+        factorize(dat$Origin),factorize(dat$Dest),factorize(dat$Fog.x), factorize(dat$Rain.x), factorize(dat$Snow.x), 
+        factorize(dat$Hail.x),factorize(dat$Thunder.x), factorize(dat$Tornado.x), factorize(dat$season))
+for (i in 1:n){
+a = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.x + DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + UniqueCarrier + Origin + Dest + Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + Tornado.x + season, data = dat[-flds[[i]],] )
+x=b[flds[[i]],]
+c=x%*%summary(a)[[2]][,1]
+c=dat[flds[[i]],]$DepDelay-c
+SSY=SSY+sum((dat[flds[[i]],]$DepDelay-Ybar)^2)
+n1=n1+length(c)
+sum_rresidual=sum_rresidual+sum(c^2)
+}
+R_PRESS=1-sum_rresidual/SSY
+R_PRESS
+
+###PRESS for ArrDelay
+sum_rresidual=0
+n1=0
+Ybar=mean(dat$ArrDelay)
+SSY=0
+b=cbind(rep(1,nrow(dat)),factorize(dat$Year), dat$Month, dat$DayofMonth, factorize(dat$DayOfWeek), dat$Distance, dat$TEMP.y, dat$DEWP.y,
+        dat$SLP.y, dat$VISIB.y, dat$WDSP.y, dat$MXSPD.y, dat$PRCP.y, dat$SNDP.y, factorize(dat$UniqueCarrier), factorize(dat$Origin),
+        factorize(dat$Dest), factorize(dat$Fog.y), factorize(dat$Rain.y), factorize(dat$Snow.y),
+        factorize(dat$Hail.y), factorize(dat$Thunder.y), factorize(dat$Tornado.y),factorize(dat$season))
+
+
+for (i in 1:n){
+a = biglm.big.matrix (ArrDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TEMP.y + DEWP.y + SLP.y + VISIB.y + WDSP.y + MXSPD.y + PRCP.y + SNDP.y + UniqueCarrier + Origin + Dest + Fog.y + Rain.y + Snow.y + Hail.y + Thunder.y + Tornado.y + season, data = dat[-flds[[i]],] )
+x=b[flds[[i]],]
+c=x%*%summary(a)[[2]][,1]
+c=dat[flds[[i]],]$ArrDelay-c
+SSY=SSY+sum((dat[flds[[i]],]$ArrDelay-Ybar)^2)
+n1=n1+length(c)
+sum_rresidual=sum_rresidual+sum(c^2)
+}
+R_PRESS=1-sum_rresidual/SSY
+R_PRESS
+
+```
+
+We additionally diagnosed our model for issues with multicolinearity and found 
+
+_no issues or some issues with variables_ whatever result we had...
+
+### Linear Mixed Models
+
+We encountered a memory issue with running the lme4 package on our imported data: 
+> "Error: cannot allocate vector of size 256.0 Mb" on Rstudio
+
+```{r}
+library(car)
+flight_model1 <- lmer(DepDelay ~ Year + Fog.y + Rain.y + Snow.y + Hail.y + Thunder.y +
+                       TEMP.y + (1 | Year), dat)
+vif(flight_model1)
+
+
+flight_model2 <- lmer(ArrDelay ~ Year + Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x +
+                       TEMP.x + (1 | Year), dat)
+vif(flight_model2)
+```
+We ran the analysis on the biostatistics computing cluster.
 
 ## Results  
 
-put linear regression results here
+### Linear Regression
 
-put lmm results here (if we get them)
+Note: Not all outputs had a p-value attached to it.
 
-put weather results here
+Arrival Delays:  
 
+Yearly Trends:
+
+Year (Ref 2001) | Estimate  | Standard Error
+-------- | ------- | -------
+2002 | -2.6618 | 0.0274
+2003 | -2.7028 | 0.027
+2004 | 0.06525 | 0.0262
+2005 | 1.9198  | 0.0269
+2006 | 3.6907  | 0.0273 
+2007 | 5.3389  | 0.0272
+2008 | 3.1277  | 0.0276
+
+Monthly Trends:
+
+
+
+
+Variable | Estimate | Standard Error | p-value 
+-------- | -------- | ------- | ---------
+Temperature | -0.0868 | 0.0012 | N/A
+ |  | |
+Month | asdf | 0.9234 |
+Thunder | filler | 0.23423423425 |
+
+sources of significant delays  
+
+Departure delays were largely in part similar to arrival delays, as we suspect that flights that 
+
+
+### Linear Mixed Models(?)
+
+_ADD RESULTS IF WE HAVE THEM_
 
 
 ## Conclusion and Further Work
@@ -431,8 +588,8 @@ Flight delays may be indicated by the following significant factors:
 Our work was comprehensive, but not exhaustive, with the following topics of interest for future investigation
 * Pre 9/11 Era comparison
   + As our analysis contains information on post-9/11, where security measures have been tightened signficantly, we would like to see if effects that are signficant in causing delays in this era are more pronounced before 9/11
-* Full dataset (1978-2008) would be too large for our methods used (>20 GB)
-  + having computation troubles as seen above, may need different forms
+* Full dataset (1987-2008) would be too large for our methods used (greater than 20 GB)
+  + Having computation troubles as seen above, may need different forms
   + Would require different forms of data storage
   + Look into using RHadoop
   + Not limited to cluster computing
@@ -442,5 +599,5 @@ Our work was comprehensive, but not exhaustive, with the following topics of int
 
 ## Special Acknowledgements
 
-Special Thanks to Daniel Barker and Rob(??) for their help and availibility in teaching us how to use the computing clusters. 
+Special Thanks to Daniel Barker for his help and availibility in teaching us how to use the computing clusters. 
 
