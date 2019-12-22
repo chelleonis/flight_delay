@@ -436,17 +436,19 @@ factorize=function(name,data=dat1){
   return(x_matrix)
 }
 ###PRESS
+##set default value
 sum_rresidual=0
 SSY=0
 Ybar=mean(dat1$DepDelay)
 n1=0
+##form design matrix for the model
 b = cbind(rep(1,nrow(dat1)),factorize(dat1$Year), dat1$Month, dat1$DayofMonth, factorize(dat1$DayOfWeek), dat1$Distance, dat1$TaxiIn, 
           dat1$TaxiOut, dat1$TEMP.x,dat1$DEWP.x, dat1$SLP.x, dat1$VISIB.x, dat1$WDSP.x, dat1$MXSPD.x, dat1$PRCP.x, dat1$SNDP.x, dat1$TEMP.y, 
           dat1$DEWP.y,dat1$SLP.y, dat1$VISIB.y, dat1$WDSP.y, dat1$MXSPD.y, dat1$PRCP.y, dat1$SNDP.y, factorize(dat1$UniqueCarrier), 
           factorize(dat1$Origin),factorize(dat1$Dest),factorize(dat1$Fog.x), factorize(dat1$Rain.x), factorize(dat1$Snow.x), 
           factorize(dat1$Hail.x),factorize(dat1$Thunder.x), factorize(dat1$Tornado.x), factorize(dat1$Fog.y), factorize(dat1$Rain.y), 
           factorize(dat1$Snow.y),factorize(dat1$Hail.y), factorize(dat1$Thunder.y), factorize(dat1$Tornado.y),factorize(dat1$season))
-
+##fit model with training data and estimate PREE for each fold
 for (i in 1:n){
   a = biglm.big.matrix (DepDelay ~ Year + Month + DayofMonth + DayOfWeek + Distance + TaxiIn + TaxiOut + TEMP.x +
                     DEWP.x + SLP.x + VISIB.x + WDSP.x + MXSPD.x + PRCP.x + SNDP.x + TEMP.y + DEWP.y +
@@ -460,6 +462,7 @@ for (i in 1:n){
   n1=n1+length(c)
   sum_rresidual=sum_rresidual+sum(c^2)
 }
+##calculate R_PRESS
 R_PRESS=1-sum_rresidual/SSY
 R_PRESS
 
