@@ -549,7 +549,7 @@ Our work was comprehensive, but not exhaustive, with the following topics of int
 * Pre 9/11 Era comparison  
   + As our analysis contains information on post-9/11, where security measures have been tightened signficantly, we would like to see if effects that are  signficant in causing delays in this era are more pronounced before 9/11   
 * Compilation of more recent Data (2009-present)    
-* Full dataset (1987-2008) would be too large for our methods used (greater than 20 GB)
+* Full dataset (1987-2008) would be too large for our methods used (greater than 20 GB)  
   + Having computation troubles as seen above, may need different forms  
   + Would require different forms of data storage  
   + Look into using RHadoop   
