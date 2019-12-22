@@ -30,7 +30,7 @@ library(gridExtra)
 
 ## Introduction
 
-Delayed flights are a common occurence in the airline industry, with 25 million flights being delayed (greater than 15 minutes) in the US over 20 years. The issue of delayed flights is seemingly unpredictable with so many factors preceding an on-time flight. For the customer then, it is of increased importance to be able to anticipate what may cause a delay in their flight. To try to shed some light on the issue, we analyzed a large dataset from the post 9/11 era (2001-2008), given by the Bureau of Transportation Statistics. 
+Delayed flights are a common occurence in the airline industry, with 25 million flights being delayed (greater than 15 minutes) in the US over 20 years. The issue of delayed flights is seemingly unpredictable with so many factors preceding an on-time flight. For the customer then, it is of increased importance to be able to anticipate what may cause a delay in their flight. To try to shed some light on the issue, we analyzed a large dataset from the post 9/11 era (2001-2008), given by the Bureau of Transportation Statistics.
 
 
 #### Calendar Heatmap
@@ -370,7 +370,7 @@ From our results, most variables had low correlation with each other. Some relat
 
 ### Linear regression
 
-Linear Regresion was performed with the biganalytics package, where we analyzed delays for departures and arrivals in their own models. The code for arrival delays is included below.  
+Since the requirement of computitional memory for lm(), Linear Regresion was performed with the biganalytics package, where we analyzed delays for departures and arrivals in their own models. The code for arrival delays is included below.  
 
 ```{r, eval = FALSE}
 #certain variables were chosen to be categorical via as.factor()
@@ -467,7 +467,11 @@ R_PRESS = 1 - sum_rresidual/SSY
 R_PRESS
 ```
 
-From our diagnosis, we are interested in VIF values greater than 10 (the typical cutoff). After scaling the values to account for degrees of freedom in categories, we found that none of the covariates had an overwhelmingly large variance inflation factor. Thus, for our linear model we are not concerned with issues of multicolinearity.
+R_PRESS for ArrDelay: 0.04340849  
+
+R_PRESS for DepDelay: 0.03541707
+
+From our diagnosis, we are interested in VIF values greater than 10 (the typical cutoff). After scaling the values to account for degrees of freedom in categories, we found that none of the covariates had an overwhelmingly large variance inflation factor. Thus, for our linear model we are not concerned with issues of multicolinearity. As for validation result, since it takes a long time to do leave-one-out cross validation, we tried 10-fold validation here. Our PRESS statistic showed the predictive ability of these two linear models are not very satisfying so other models should be considered, e.g. Linear Mixed Model. 
 
 ### Linear Mixed Models
 
@@ -480,11 +484,32 @@ We ran the analysis on the biostatistics computing cluster for both arrival and 
 #Departure Delay is calculated similarly
 library(car)
 flight_model2 <- lmer(ArrDelay ~ Year + Fog.x + Rain.x + Snow.x + Hail.x + Thunder.x + TEMP.x + (1 | Year), dat)
-vif(flight_model2)
 #LMM model runtime: 671.962 sec elapsed
 ```
 
 Our models took approximately 10 minutes to run on the biostatistics cluster.  
+
+```{r, eval = FALSE, echo = FALSE}
+##VIF
+vif(flight_model2)
+##cross validation
+PRESS = function(fit){
+  res = residuals(fit)
+  H = hatvalues(fit)
+  sigma = summary(fit)$sigm
+  sres = sapply(1:length(res), function(i) res[[i]]/(sigma*sqrt(1-H[[i]])))
+  PRESS = sum(sres^2)
+  return(PRESS)
+}
+SSY = (fitted(flight_model2) - mean(dat$ArrDelay))^2
+R_PRESS = 1 - PRESS(flight_model2)/SSY
+```
+
+R_PRESS for ArrDelay: 0.9691399
+
+R_PRESS for DepDelay: 0.9207938
+
+Also, we did VIF diagnosis and cross validation for models. Similarly, we are not concerned with issues of multicolinearity. As for cross validation results, the prediction ability of linear mixed model is much better than linear regression models.  
 
 ## Results  
 
@@ -512,7 +537,7 @@ grid.arrange(plot1, plot2, plot3, plot4, ncol = 2, nrow = 2)
 
 Flight delays were at a minimum in 2003, but have been steadily increasing ever since. Interestingly, the best days of the week to fly are Tuesday, Wednesday, and Saturday, with Friday being the worst.
 
-For weather related delays in departures, it seems as if non-clear weather conditions delay the departure of planes, as expected. Temperature appears to have no adjusted linear effect on departure delay, perhaps because the true relation is quadratic or more complex.
+For weather related delays in departures, it seems as if non-clear weather conditions delay the departure of planes, as expected. Temperature appears to have no adjusted linear effect on departure delay, perhaps because the true relation is quadratic or more complex. 
 
 Of our 58 selected airports, we displayed the 10 most significant results. The best airports to fly from were the two in Hawaii. The airports most susceptible to delays were large airports such as Atlanta, Newark, Philadelphia, and Chicago being the worst.
 
@@ -548,7 +573,7 @@ Our work was comprehensive, but not exhaustive, with the following topics of int
 * Pre 9/11 Era comparison  
   + As our analysis contains information on post-9/11, where security measures have been tightened signficantly, we would like to see if effects that are  signficant in causing delays in this era are more pronounced before 9/11   
 * Compilation of more recent Data (2009-present)    
-* Full dataset (1987-2008) would be too large for our methods used (greater than 20 GB)  
+* Full dataset (1987-2008) would be too large for our methods used (greater than 20 GB)
   + Having computation troubles as seen above, may need different forms  
   + Would require different forms of data storage  
   + Look into using RHadoop   
@@ -559,5 +584,5 @@ Our work was comprehensive, but not exhaustive, with the following topics of int
 
 ## Special Acknowledgements
 
-Special Thanks to Dan Barker for his help and availibility in teaching us how to use the computing clusters. 
+Special Thanks to Daniel Barker for his help and availibility in teaching us how to use the computing clusters. 
 
