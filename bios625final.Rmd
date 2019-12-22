@@ -465,7 +465,7 @@ R_PRESS = 1 - sum_rresidual/SSY
 R_PRESS
 ```
 
-From our diagnosis, we are interested in VIF values greater than 10 (the typical cutoff). After scaling the values to account for degrees of freedom in categories, we found that none of the covariates had an overwhelmingly large variance inflation factor. Thus, for our linear model we are not concerned with issues of multicolinearity. Our PRESS statistic, 
+From our diagnosis, we are interested in VIF values greater than 10 (the typical cutoff). After scaling the values to account for degrees of freedom in categories, we found that none of the covariates had an overwhelmingly large variance inflation factor. Thus, for our linear model we are not concerned with issues of multicolinearity.
 
 ### Linear Mixed Models
 
@@ -560,5 +560,5 @@ Our work was comprehensive, but not exhaustive, with the following topics of int
 
 ## Special Acknowledgements
 
-Special Thanks to Daniel Barker for his help and availibility in teaching us how to use the computing clusters. 
+Special Thanks to Dan Barker for his help and availibility in teaching us how to use the computing clusters. 
 
