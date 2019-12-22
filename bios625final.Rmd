@@ -414,14 +414,14 @@ VIF(Arr_result)
 #######
 ```
 
-We additionally performed diagnoses for our model for issues with multicolinearity and overfitting (cross-validation). The method can be found in the Rmarkdown file or the file "residual_diagnostics.R". Our GVIF and PRESS results can be found in the file "lm VIF results.txt"
+We additionally performed diagnoses for our model for issues with multicolinearity and overfitting (cross-validation) and there is no existing package for class obtained from biglm.big.matrix(). The method can be found in the Rmarkdown file or the file "residual_diagnostics.R". Our GVIF and PRESS results can be found in the file "lm VIF results.txt"
 
 ```{r, eval = FALSE, echo = FALSE}
 ####PRESS for ArrDelay
 ##PRESS for DepDelay was calculated similarly, but with weather variables coded as .x (the starting destination) instead of .y
 ##create k folds to do cross validation
 set.seed(1234)
-dat1 = dat[complete.cases(dat$ArrDelay), ]
+dat1 = dat[complete.cases(dat), ]
 flds = createFolds(dat1$ArrDelay, k = 10, list = TRUE, returnTrain = FALSE)
 n=length(flds)
 ##functions for obtain fitted values based of estimated coefficients
